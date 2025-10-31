@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>NEET SS Surgical Group – Study Planner</title>
+  <title>NEET SS Surgical Group – AI Study Planner</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
     :root {
@@ -26,290 +26,256 @@
       color: var(--text);
       margin: 0;
       padding: 0 1rem 3rem;
-      line-height: 1.6;
     }
 
     header {
-      text-align: center;
       background: var(--primary);
       color: #fff;
-      padding: 1.2rem;
+      text-align: center;
+      padding: 1rem;
       border-radius: 0 0 12px 12px;
       box-shadow: var(--shadow);
+      position: relative;
     }
 
-    header h1 {
-      margin: 0;
-      font-size: 1.8rem;
-      letter-spacing: 0.5px;
+    header img {
+      height: 60px;
+      position: absolute;
+      left: 1rem;
+      top: 0.8rem;
     }
 
-    header p {
-      font-size: 0.95rem;
-      margin: 0.3rem 0 0;
-      color: #e0e0e0;
-    }
+    h1 { margin: 0; font-size: 1.8rem; }
+    p { margin: 0.2rem 0; }
 
-    form {
+    form, .card {
       background: var(--card-bg);
-      padding: 1.2rem;
-      border-radius: 12px;
+      padding: 1rem;
+      border-radius: 10px;
       box-shadow: var(--shadow);
-      margin: 2rem auto;
-      max-width: 600px;
+      margin: 1rem auto;
+      max-width: 650px;
     }
 
-    label {
-      display: block;
-      margin-top: 0.8rem;
-      font-weight: 600;
-      color: var(--primary);
-    }
-
-    input {
-      padding: 8px;
+    input, select {
       width: 100%;
+      padding: 8px;
+      margin: 0.4rem 0 1rem;
       border: 1px solid #ccc;
       border-radius: 6px;
       font-size: 1rem;
     }
 
     button {
-      display: inline-block;
       background: var(--secondary);
-      color: #fff;
+      color: white;
       border: none;
       border-radius: 8px;
-      padding: 10px 20px;
-      margin-top: 1rem;
-      font-size: 1rem;
+      padding: 10px 18px;
+      margin: 5px;
       cursor: pointer;
-      box-shadow: var(--shadow);
     }
-
     button:hover { background: #0d47a1; }
 
-    h2, h3 { color: var(--primary); }
-
-    .summary-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin: 1rem 0;
-    }
-
-    .summary-card {
-      flex: 1;
-      min-width: 140px;
-      background: var(--card-bg);
-      border-radius: 10px;
-      box-shadow: var(--shadow);
-      padding: 10px 14px;
-      text-align: center;
-    }
-
-    .summary-card h3 { margin: 0; font-size: 0.9rem; color: var(--muted); }
-    .summary-card p { margin: 4px 0 0; font-weight: 600; color: var(--text); }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 16px;
-      margin-top: 1rem;
-    }
-
-    .card {
-      background: var(--card-bg);
-      border-radius: 10px;
-      box-shadow: var(--shadow);
-      padding: 16px;
-      position: relative;
-    }
-
-    .foundation { border-left: 5px solid var(--foundation); }
-    .consolidation { border-left: 5px solid var(--consolidation); }
-    .revision { border-left: 5px solid var(--revision); }
-
-    .phase-tag {
-      display: inline-block;
-      padding: 3px 10px;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #fff;
-    }
-
-    .mockday { color: var(--danger); font-weight: 700; }
+    #loginArea, #registerArea, #plannerArea { display: none; }
     .muted { color: var(--muted); font-size: 0.9rem; }
-
-    ul { margin: 0.4rem 0 0 1rem; color: var(--muted); }
-
-    .selfcheck label { display: block; margin: .3rem 0; font-size: 0.9rem; }
-
-    #mentorBtn {
-      margin-top: .8rem;
-      background: #999;
-      opacity: .6;
-      cursor: not-allowed;
-      border: none;
-      border-radius: 6px;
-      color: #fff;
-      padding: 6px 10px;
-    }
-
-    .pagination {
-      text-align: center;
-      margin-top: 1.5rem;
-    }
-
-    .pagination button {
-      margin: 0 8px;
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 6px 14px;
-      cursor: pointer;
-    }
-
-    .pagination button[disabled] { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 
 <body>
   <header>
+    <img src="/static/logo.png" alt="Sushruta LGS Logo"/>
     <h1>NEET SS Surgical Group – Study Planner</h1>
-    <p>Rule of 3 | Interleaved Theory ≠ MCQ | 1–3–5–7–9 Recall | Mocks @ D+7 & D−10 (no consecutive mocks)</p>
+    <p>Rule of 3 | Interleaved Theory ≠ MCQ | 1–3–5–7–9 Recall | Mocks @ D+7 & D−10</p>
   </header>
 
-  <form onsubmit="event.preventDefault(); makePlan();">
-    <label>Start Date</label><input id="start" type="date" required>
-    <label>Exam Date</label><input id="exam" type="date" required>
-    <label>Hours / Day</label><input id="hours" type="number" step="0.5" min="1" value="6">
-    <label>Number of Mocks</label><input id="mocks" type="number" min="0" value="4">
-    <label>Avg Minutes per MCQ (2.0–3.0)</label><input id="permcq" type="number" step="0.1" min="2.0" max="3.0" value="2.5">
-    <button type="submit">Generate Plan</button>
-  </form>
+  <!-- LOGIN / REGISTER -->
+  <section id="authArea">
+    <div id="loginArea">
+      <form id="loginForm">
+        <h2>🔐 Login</h2>
+        <input id="loginEmail" type="email" placeholder="Email" required/>
+        <input id="loginPassword" type="password" placeholder="Password" required/>
+        <button type="submit">Login</button>
+        <button type="button" onclick="showRegister()">Register</button>
+      </form>
+    </div>
 
-  <section id="summary"></section>
-  <hr>
-  <section>
-    <h2>📅 Weekly Overview</h2>
-    <div id="weeks" class="grid"></div>
+    <div id="registerArea">
+      <form id="registerForm">
+        <h2>🧾 Register</h2>
+        <input id="regName" type="text" placeholder="Full Name" required/>
+        <input id="regEmail" type="email" placeholder="Email" required/>
+        <input id="regGoal" type="text" placeholder="Goal (e.g. Surgical Gastroenterology)" />
+        <input id="regPassword" type="password" placeholder="Password" required/>
+        <button type="submit">Create Account</button>
+        <button type="button" onclick="showLogin()">Back to Login</button>
+      </form>
+    </div>
   </section>
 
-  <hr>
-  <section>
-    <h2>🧭 Daily Plan</h2>
-    <div id="days" class="grid"></div>
-  </section>
+  <!-- PLANNER SECTION -->
+  <section id="plannerArea">
+    <div class="card">
+      <h2 id="welcomeMsg"></h2>
+      <button onclick="logout()">Logout</button>
+    </div>
 
-  <footer>
-    © 2025 Sushruta LGS | Designed for NEET SS Surgical Group Aspirants
-  </footer>
+    <form id="planForm" onsubmit="event.preventDefault(); makePlan();">
+      <h2>🧭 Create a Study Plan</h2>
+      <label>Start Date</label>
+      <input id="start" type="date" required>
+      <label>Exam Date</label>
+      <input id="exam" type="date" required>
+      <label>Hours / Day</label>
+      <input id="hours" type="number" step="0.5" value="6">
+      <label>Number of Mocks</label>
+      <input id="mocks" type="number" min="0" value="4">
+      <label>Plan Type</label>
+      <select id="planType">
+        <option value="full">Full Plan (Theory + MCQ + Recall + Mocks)</option>
+        <option value="theory">Theory Only</option>
+        <option value="mcq">MCQ Only</option>
+        <option value="revision">Revision Only</option>
+        <option value="mock">Mock Only</option>
+      </select>
+      <button type="submit">Generate Plan</button>
+    </form>
+
+    <div id="planOutput" class="card" style="display:none;">
+      <h2>📘 Plan Summary</h2>
+      <div id="summary"></div>
+      <div id="weeks"></div>
+      <div id="actions"></div>
+    </div>
+  </section>
 
   <script>
-    let allSchedule = [], currentPage = 1, daysPerPage = 14;
+    const API = '/api';
+    let token = localStorage.getItem('token');
+    let currentPlan = null;
 
+    // --- Auth UI ---
+    function showLogin() {
+      document.getElementById('registerArea').style.display = 'none';
+      document.getElementById('loginArea').style.display = 'block';
+    }
+    function showRegister() {
+      document.getElementById('loginArea').style.display = 'none';
+      document.getElementById('registerArea').style.display = 'block';
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      location.reload();
+    }
+
+    // --- Auth Logic ---
+    async function login(email, password) {
+      const res = await fetch(`${API}/login`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({email, password})
+      });
+      if (!res.ok) return alert('Invalid credentials');
+      const data = await res.json();
+      token = data.access_token;
+      localStorage.setItem('token', token);
+      loadUser();
+    }
+
+    async function register(name, email, password, goal) {
+      const res = await fetch(`${API}/register`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({name, email, password, goal})
+      });
+      if (res.ok) { alert('Registered! Now login.'); showLogin(); }
+      else alert('Error registering user');
+    }
+
+    async function loadUser() {
+      if (!token) { showLogin(); return; }
+      const res = await fetch(`${API}/me`, { headers: {Authorization: `Bearer ${token}`}});
+      if (!res.ok) { showLogin(); return; }
+      const user = await res.json();
+      document.getElementById('authArea').style.display = 'none';
+      document.getElementById('plannerArea').style.display = 'block';
+      document.getElementById('welcomeMsg').textContent = `👋 Welcome, Dr. ${user.name} (${user.goal || 'General Surgery'})`;
+    }
+
+    // --- Form Handlers ---
+    document.getElementById('loginForm').onsubmit = (e) => {
+      e.preventDefault();
+      login(loginEmail.value, loginPassword.value);
+    };
+    document.getElementById('registerForm').onsubmit = (e) => {
+      e.preventDefault();
+      register(regName.value, regEmail.value, regPassword.value, regGoal.value);
+    };
+
+    // --- Plan Generation ---
     async function makePlan() {
       const payload = {
-        start_date: document.getElementById('start').value,
-        exam_date: document.getElementById('exam').value,
-        hours_per_day: +document.getElementById('hours').value,
-        mocks: +document.getElementById('mocks').value,
-        avg_minutes_per_mcq: +document.getElementById('permcq').value
+        start_date: start.value,
+        exam_date: exam.value,
+        hours_per_day: parseFloat(hours.value),
+        mocks: parseInt(mocks.value),
+        avg_minutes_per_mcq: 2.5,
+        plan_type: planType.value
       };
-      const r = await fetch('/plan', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
+      const res = await fetch(`${API}/plan`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
         body: JSON.stringify(payload)
       });
-      if (!r.ok) return alert('Error generating plan');
-      const data = await r.json();
-      allSchedule = data.schedule;
-      renderSummary(data); renderWeeks(data); renderDaysPage();
+      if (!res.ok) return alert('Error generating plan');
+      const data = await res.json();
+      currentPlan = data;
+      showPlan(data);
     }
 
-    function renderSummary(data) {
+    function showPlan(data) {
+      document.getElementById('planOutput').style.display = 'block';
       document.getElementById('summary').innerHTML = `
-        <h2>📘 Plan Summary</h2>
-        <div class="summary-grid">
-          <div class="summary-card"><h3>Start Date</h3><p>${data.meta.start_date}</p></div>
-          <div class="summary-card"><h3>Exam Date</h3><p>${data.meta.exam_date}</p></div>
-          <div class="summary-card"><h3>Total Days</h3><p>${data.meta.days}</p></div>
-          <div class="summary-card"><h3>Hours/Day</h3><p>${data.meta.hours_per_day}</p></div>
-          <div class="summary-card"><h3>Mocks Scheduled</h3><p>${data.meta.mock_days_indexed.length}</p></div>
-        </div>
-        <p class="muted">Mock Days: ${data.meta.mock_days_indexed.join(', ') || '—'}</p>`;
+        <p><b>Start:</b> ${data.meta.start_date} &nbsp; <b>Exam:</b> ${data.meta.exam_date}</p>
+        <p><b>Days:</b> ${data.meta.days} | <b>Hours/day:</b> ${data.meta.hours_per_day}</p>
+      `;
+      document.getElementById('weeks').innerHTML = data.weekly_summaries.map(w =>
+        `<p><b>Week ${w.week} (${w.phase})</b><br>${w.start_date} → ${w.end_date}<br>${w.quote}</p>`
+      ).join('');
+      document.getElementById('actions').innerHTML = `
+        <button onclick="savePlan()">💾 Save Plan</button>
+        <button onclick="downloadPlan('pdf')">⬇️ PDF</button>
+        <button onclick="downloadPlan('ics')">📅 Calendar</button>
+      `;
     }
 
-    function renderWeeks(data) {
-      const wrap = document.getElementById('weeks');
-      wrap.innerHTML = '';
-      data.weekly_summaries.forEach(w => {
-        const cls = w.phase.includes('Foundation') ? 'foundation' :
-                    w.phase.includes('Consolidation') ? 'consolidation' : 'revision';
-        const id = `week-${w.week}`;
-        const chk = getChecks(id);
-        const el = document.createElement('div');
-        el.className = `card ${cls}`;
-        el.innerHTML = `
-          <h3>Week ${w.week} – ${w.phase}</h3>
-          <p class="muted">${w.start_date} → ${w.end_date}</p>
-          <p><b>🎯 Targets:</b> Theory ${w.weekly_targets.theory_min} min | MCQ ${w.weekly_targets.mcq_min} min (~${w.weekly_targets.approx_mcqs} Qs) | Recall ${w.weekly_targets.recall_min} min</p>
-          <p><b>Focus:</b></p><ul>${w.focus_notes.map(f => `<li>${f}</li>`).join('')}</ul>
-          <p><i>"${w.quote}"</i></p>
-          <div class="selfcheck">
-            <label><input type="checkbox" onchange="saveCheck('${id}',0,this.checked)" ${chk[0]?'checked':''}> Completed all theory sessions</label>
-            <label><input type="checkbox" onchange="saveCheck('${id}',1,this.checked)" ${chk[1]?'checked':''}> Reviewed recall topics</label>
-            <label><input type="checkbox" onchange="saveCheck('${id}',2,this.checked)" ${chk[2]?'checked':''}> Analyzed mock errors</label>
-          </div>
-          <button id="mentorBtn" disabled>AI Mentor Mode (Coming Soon)</button>`;
-        wrap.appendChild(el);
+    async function savePlan() {
+      const name = prompt('Enter name for this plan:', 'My NEET SS Plan');
+      if (!name) return;
+      const res = await fetch(`${API}/plans/save`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json', Authorization: `Bearer ${token}`},
+        body: JSON.stringify({name, data: currentPlan})
       });
+      if (res.ok) alert('✅ Plan saved!');
+      else alert('Error saving plan');
     }
 
-    function getChecks(id){return JSON.parse(localStorage.getItem(id)||'[false,false,false]');}
-    function saveCheck(id,idx,val){const arr=getChecks(id);arr[idx]=val;localStorage.setItem(id,JSON.stringify(arr));}
-
-    function renderDaysPage(){
-      const cont=document.getElementById('days');
-      cont.innerHTML='';
-      const s=(currentPage-1)*daysPerPage, e=Math.min(s+daysPerPage,allSchedule.length);
-      allSchedule.slice(s,e).forEach(d=>{
-        const el=document.createElement('div');el.className='card';
-        const cls=d.phase.includes('Foundation')?'foundation':d.phase.includes('Consolidation')?'consolidation':'revision';
-        if(d.is_mock_day){
-          el.innerHTML=`
-            <h3>${d.date} <span class="mockday">— MOCK DAY</span></h3>
-            <span class="phase-tag" style="background:var(--${cls})">${d.phase}</span>
-            <p><b>Mock Exam:</b> ${d.mock.minutes} min + <b>Analysis:</b> ${d.mock.analysis_minutes} min</p>
-            <p><b>Recall:</b> ${d.recall.due_topics.join(', ')||'—'} (${d.recall.minutes} min)</p>
-            <p class="muted">No Theory or MCQs today — focus on analysis and spaced recall.</p>`;
-        }else{
-          el.innerHTML=`
-            <h3>${d.date}</h3>
-            <span class="phase-tag" style="background:var(--${cls})">${d.phase}</span>
-            <p><b>Theory:</b> ${d.theory.topic} (${d.theory.minutes} min)</p>
-            <p><b>MCQ:</b> ${d.mcq.topic} (${d.mcq.minutes} min, ~${d.mcq.target_questions} Qs)</p>
-            <p><b>Recall:</b> ${d.recall.due_topics.join(', ')||'—'} (${d.recall.minutes} min)</p>`;
-        }
-        cont.appendChild(el);
+    async function downloadPlan(type) {
+      const res = await fetch(`${API}/plans/download/1?type=${type}`, {
+        headers: {Authorization: `Bearer ${token}`}
       });
-      const totalPages=Math.ceil(allSchedule.length/daysPerPage);
-      cont.innerHTML+=`
-        <div class="pagination">
-          <button onclick="page(-1)" ${currentPage==1?'disabled':''}>⏮️ Prev</button>
-          Page ${currentPage}/${totalPages}
-          <button onclick="page(1)" ${currentPage==totalPages?'disabled':''}>Next ⏭️</button>
-        </div>`;
+      const blob = await res.blob();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `NEETSS_StudyPlan.${type}`;
+      link.click();
     }
 
-    function page(dir){
-      const totalPages=Math.ceil(allSchedule.length/daysPerPage);
-      if(dir>0&&currentPage<totalPages)currentPage++;
-      else if(dir<0&&currentPage>1)currentPage--;
-      renderDaysPage(); window.scrollTo(0,300);
-    }
+    // INIT
+    loadUser();
   </script>
 </body>
 </html>
