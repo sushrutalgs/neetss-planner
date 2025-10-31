@@ -8,16 +8,15 @@
 
 <style>
   :root{
-    /* Brand palette */
-    --primary:#0b5fe0;         /* Blue (header/footer) */
-    --primary-2:#1d4ed8;
-    --secondary:#0a2a6c;
-    --accent:#10b981;          /* Teal accent for check/accents */
+    /* Brand */
+    --primary:#0b5fe0;
+    --primary-2:#0a2a6c;
+    --accent:#10b981;
     --danger:#dc2626;
 
     /* Surfaces */
     --bg:linear-gradient(135deg,#f8fafc,#eef2f3);
-    --card-bg:#ffffffcc;       /* glassy white */
+    --card-bg:#ffffffcc;
     --elev:0 12px 30px rgba(0,0,0,.08);
     --text:#0f172a;
     --muted:#475569;
@@ -29,7 +28,7 @@
     --ring-thick:14;
     --radius:56;
 
-    /* Base responsive sizes (≈ 2x hero; planner scaled via --ui-scale) */
+    /* Typography (base) */
     --fs-base:clamp(18px, 2.2vw, 22px);
     --fs-sm:clamp(12px, 1.35vw, 14px);
     --fs-md:clamp(15px, 1.6vw, 18px);
@@ -40,16 +39,16 @@
     --radius-card:20px;
     --blur:12px;
 
-    /* User controls */
-    --user-scale:1;        /* font-size modal slider (0.8 - 1.6), applied to root */
-    --ui-scale:1.25;       /* global UI scale for planner body (feels ~2.5x overall combined with typography) */
+    /* User scale (slider) */
+    --scale: 1;         /* global scale for entire page (0.8 - 1.6) */
+    --ui-scale: 1.25;   /* baseline UI enlargement (~2.5x feel combined with typography) */
+
+    /* Footer height (reserve space) */
+    --footer-h: clamp(140px, 18vh, 200px);
   }
   :root.dark{
     --primary:#3b82f6;
-    --primary-2:#1e40af;
-    --secondary:#0b1220;
-    --accent:#22d3ee;
-    --danger:#f87171;
+    --primary-2:#1e3a8a;
 
     --bg:linear-gradient(135deg,#0b1220,#0f172a);
     --card-bg:#0f172acc;
@@ -70,15 +69,25 @@
     color:var(--text);
     background:var(--bg);
     overflow-x:hidden;
-    font-size:calc(var(--fs-base) * var(--user-scale));
-    transition:font-size .25s ease;
+    transition: font-size .25s ease;
+    /* Body font for components that inherit from root (header/footer text also scales) */
+    font-size: var(--fs-base);
   }
 
-  /* ===== HEADER (Hero, full-width) ===== */
+  /* ===== PAGE ROOT SCALE (affects entire UI: header + main + footer) ===== */
+  .page-root{
+    transform: scale(calc(var(--ui-scale) * var(--scale)));
+    transform-origin: top center;
+    /* Inverse width to prevent overflow caused by scale */
+    width: calc(100% / (var(--ui-scale) * var(--scale)));
+    margin: 0 auto;
+  }
+
+  /* ===== HERO HEADER ===== */
   header{
-    background:linear-gradient(135deg,var(--primary),var(--primary-2));
+    background: linear-gradient(135deg, var(--primary), var(--primary-2));
     color:#fff;
-    position:sticky;top:0;z-index:30;
+    position:sticky; top:0; z-index:30;
     box-shadow:var(--elev);
     padding:clamp(10px,1.8vw,16px) clamp(12px,3vw,28px);
   }
@@ -86,9 +95,7 @@
     max-width:1400px;margin:0 auto;
     display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:clamp(8px,1.6vw,18px);
   }
-  .hero .logo{
-    display:flex;align-items:center;gap:clamp(8px,1.2vw,14px);
-  }
+  .hero .logo{display:flex;align-items:center;gap:clamp(8px,1.2vw,14px)}
   .hero .logo img{
     height:clamp(40px, 5.2vw, 64px);
     border-radius:12px;opacity:.98;
@@ -98,19 +105,11 @@
     text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;
   }
   .hero-title{
-    margin:0;
-    font-weight:900;
-    letter-spacing:.3px;
-    line-height:1.1;
-    font-size:calc(var(--fs-xxl) * 1.05); /* bigger hero */
+    margin:0;font-weight:900;letter-spacing:.3px;line-height:1.1;
+    font-size:calc(var(--fs-xxl) * 1.05);
     text-shadow:0 2px 18px rgba(0,0,0,.18);
   }
-  .subtitle{
-    margin:.2em 0 0 0;
-    opacity:.95;
-    font-size:var(--fs-md);
-    font-weight:600;
-  }
+  .subtitle{margin:.2em 0 0 0; opacity:.95; font-size:var(--fs-md); font-weight:600}
   .header-actions{display:flex;gap:clamp(8px,1.2vw,12px);align-items:center;justify-content:flex-end}
   .toggle{
     background:transparent;border:1px solid #ffffff66;color:#fff;border-radius:14px;
@@ -121,22 +120,20 @@
   .toggle:hover{background:#ffffff22}
   .toggle:active{transform:scale(.98)}
 
-  /* ===== MAIN SHELL & SCALE WRAP ===== */
-  .shell-viewport{
-    /* Fit-to-screen scalable wrapper: width shrinks inversely so scale doesn't overflow */
-    transform:scale(var(--ui-scale));
-    transform-origin: top center;
-    width:calc(100% / var(--ui-scale));
-    margin:0 auto;
+  /* ===== MAIN WRAPPER (prevents footer overlap) ===== */
+  .main-outer{
+    /* Reserve footer space, prevent overlap, allow scrolling within page */
+    min-height: calc(100vh - var(--footer-h));
+    padding-bottom: calc(var(--footer-h) + 24px);
   }
 
-  .shell{max-width:1400px;margin:clamp(14px,2vw,22px) auto clamp(90px,8vw,120px);padding:0 clamp(12px,3.2vw,28px);}
+  .shell{max-width:1400px;margin:clamp(14px,2vw,22px) auto clamp(24px,3vh,36px);padding:0 clamp(12px,3.2vw,28px);}
   .card{
     background:var(--card-bg);
     border:1px solid var(--border);
-    border-radius:var(--radius-card);
+    border-radius:20px;
     box-shadow:var(--elev);
-    backdrop-filter: blur(var(--blur));
+    backdrop-filter: blur(12px);
     overflow:hidden;
   }
 
@@ -247,7 +244,7 @@
   }
   #toast.show{opacity:1;transform:translateY(0)}
 
-  /* ===== Font-size Modal (centered, draggable) ===== */
+  /* ===== Font-size Modal ===== */
   .modal-backdrop{
     position:fixed;inset:0;background:rgba(0,0,0,.38);backdrop-filter:blur(2px);display:none;z-index:40;
   }
@@ -268,9 +265,11 @@
   input[type="range"]{width:100%}
   .modal-actions .btn{font-size:var(--fs-sm)}
 
-  /* ===== Footer (solid blue) ===== */
+  /* ===== FOOTER (Gradient like header) ===== */
   footer{
-    background:var(--primary);color:#fff;margin-top:36px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-2));
+    color:#fff;
+    min-height: var(--footer-h);
   }
   .footer-inner{
     max-width:1400px;margin:0 auto;
@@ -281,29 +280,168 @@
   .footer-text{margin:6px 0;font-size:clamp(14px,1.6vw,18px);opacity:.95}
   .footer-links a{color:#fff;text-decoration:underline}
   .footer-links a:hover{text-decoration:none;opacity:.9}
+
+  /* Decorative pulse on jump */
+  .pulse{animation:pulse 1.2s ease-out 1}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.45)}100%{box-shadow:0 0 0 26px rgba(16,185,129,0)}}
 </style>
 </head>
 
 <body>
-<!-- ===== HERO HEADER ===== -->
-<header>
-  <div class="hero">
-    <div class="logo">
-      <img src="/static/logo.png" alt="Cortex Surgery AI"/>
+<div class="page-root" id="pageRoot">
+  <!-- ===== HERO HEADER ===== -->
+  <header>
+    <div class="hero">
+      <div class="logo">
+        <img src="/static/logo.png" alt="Cortex Surgery AI"/>
+      </div>
+      <div class="hero-center">
+        <h1 class="hero-title">Cortex Surgery AI Planner</h1>
+        <p class="subtitle">Rule of 3 • Interleaved Learning • Spaced Recall • Timed Mocks</p>
+      </div>
+      <div class="header-actions">
+        <button class="toggle" id="fontBtn" title="Adjust Font Size">🅰️</button>
+        <button class="toggle" id="darkToggle" title="Toggle Dark Mode">🌙 Dark</button>
+        <button class="toggle" id="logoutBtn" style="display:none">Logout</button>
+      </div>
     </div>
-    <div class="hero-center">
-      <h1 class="hero-title">Cortex Surgery AI Planner</h1>
-      <p class="subtitle">Rule of 3 • Interleaved Learning • Spaced Recall • Timed Mocks</p>
-    </div>
-    <div class="header-actions">
-      <button class="toggle" id="fontBtn" title="Adjust Font Size">🅰️</button>
-      <button class="toggle" id="darkToggle" title="Toggle Dark Mode">🌙 Dark</button>
-      <button class="toggle" id="logoutBtn" style="display:none">Logout</button>
-    </div>
-  </div>
-</header>
+  </header>
 
-<!-- ===== CENTERED MODAL for FONT SIZE ===== -->
+  <!-- ===== MAIN (non-overlapping) ===== -->
+  <main class="main-outer">
+    <div class="shell">
+
+      <!-- AUTH GATE -->
+      <section id="gate" class="card">
+        <h2 class="gate-title">Welcome, Doctor</h2>
+        <p class="gate-sub">Please sign in to build and track your personalized NEET SS plan.</p>
+
+        <div id="loginBox">
+          <div class="input"><input id="loginEmail" type="email" required><label>Email</label></div>
+          <div class="input"><input id="loginPassword" type="password" required><label>Password</label></div>
+          <div class="row">
+            <button class="btn primary" id="loginBtn">Login</button>
+            <button class="btn ghost" id="showReg">Create Account</button>
+          </div>
+        </div>
+
+        <div id="regBox" style="display:none">
+          <div class="input"><input id="regName" required><label>Full Name</label></div>
+          <div class="input"><input id="regEmail" type="email" required><label>Email</label></div>
+          <div class="input"><input id="regGoal"><label>Goal (e.g., Surgical Gastroenterology)</label></div>
+          <div class="input"><input id="regPassword" type="password" required><label>Password</label></div>
+          <div class="row">
+            <button class="btn primary" id="regBtn">Register</button>
+            <button class="btn ghost" id="showLogin">Back to Login</button>
+          </div>
+        </div>
+
+        <p id="authHint" class="muted" style="margin-top:8px"></p>
+      </section>
+
+      <!-- APP -->
+      <section id="app" class="card">
+        <div class="tabs" id="tabs">
+          <button class="tab active" data-tab="builder">Plan Builder</button>
+          <button class="tab" data-tab="weekly">Weekly</button>
+          <button class="tab" data-tab="daily">Daily</button>
+          <button class="tab" data-tab="progress">Progress</button>
+          <button class="tab" data-tab="saved">Saved Plans</button>
+          <button class="tab" data-tab="help">Help</button>
+        </div>
+
+        <div class="content">
+          <!-- BUILDER -->
+          <div id="panel-builder">
+            <div id="greet" class="summary" style="display:none"></div>
+
+            <div class="builder-grid">
+              <div class="field">
+                <div class="label">Start Date</div>
+                <input id="start" type="date" required>
+              </div>
+              <div class="field">
+                <div class="label">Exam Date</div>
+                <input id="exam" type="date" required>
+              </div>
+              <div class="field">
+                <div class="label">Study Hours / Day</div>
+                <input id="hours" type="number" step="0.5" value="6" required>
+              </div>
+              <div class="field">
+                <div class="label">Number of Mocks</div>
+                <input id="mocks" type="number" min="0" value="4" required>
+              </div>
+              <div class="field">
+                <div class="label">Average Minutes per MCQ</div>
+                <input id="avg_mcq" type="number" step="0.1" min="1" max="5" value="2.5" required>
+              </div>
+            </div>
+
+            <div class="actions-row">
+              <button class="btn primary" id="genBtn">Generate Plan</button>
+              <button class="btn ghost" id="saveBtn" style="display:none">💾 Save Plan</button>
+              <button class="btn ghost" id="continueBtn" style="display:none">🧭 Continue Plan</button>
+            </div>
+
+            <div id="summary" class="summary" style="display:none"></div>
+          </div>
+
+          <!-- WEEKLY -->
+          <div id="panel-weekly" style="display:none">
+            <div id="weeklyList"></div>
+          </div>
+
+          <!-- DAILY -->
+          <div id="panel-daily" style="display:none">
+            <div id="dailyList"></div>
+          </div>
+
+          <!-- PROGRESS -->
+          <div id="panel-progress" style="display:none">
+            <div class="summary" id="progressSummary">Progress overview will appear after you generate or open a plan.</div>
+            <div class="donuts" id="donuts"></div>
+            <div class="row" style="margin-top:12px">
+              <button class="btn ghost" id="syncBtn" title="Try saving progress to server">⬆️ Save Progress to Server</button>
+              <button class="btn ghost" id="clearProgBtn">🧹 Clear Local Progress</button>
+            </div>
+          </div>
+
+          <!-- SAVED PLANS -->
+          <div id="panel-saved" style="display:none">
+            <div id="savedPlans"></div>
+          </div>
+
+          <!-- HELP -->
+          <div id="panel-help" style="display:none">
+            <div class="summary">
+              <b>Tips</b><br>
+              • Mark progress per day under <b>Daily</b> (Theory / MCQ / Recall / Mock).<br>
+              • Weekly completion is auto-calculated from daily marks.<br>
+              • Use <b>Progress</b> to view donut charts per component.<br>
+              • Your progress is stored locally and synced to the server after each mark (1s debounce).
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ===== FOOTER ===== -->
+  <footer>
+    <div class="footer-inner">
+      <p class="footer-title">© 2025 Sushruta Educations LLP · All Rights Reserved</p>
+      <p class="footer-text">Download the app 📲 and avail an exclusive 72-hour free trial 🆓 to access the complete app content 📚:</p>
+      <p class="footer-links">
+        🍏 App Store — <a href="https://apps.apple.com/in/app/sushruta-lgs/id6443898817" target="_blank" rel="noopener">https://apps.apple.com/in/app/sushruta-lgs/id6443898817</a>
+        <br/>
+        📱 Google Play — <a href="https://play.google.com/store/apps/details?id=com.ginger.sushruta" target="_blank" rel="noopener">https://play.google.com/store/apps/details?id=com.ginger.sushruta</a>
+      </p>
+    </div>
+  </footer>
+</div>
+
+<!-- ===== MODAL (outside .page-root so it stays the same size while page scales) ===== -->
 <div class="modal-backdrop" id="fsBackdrop"></div>
 <div class="modal" id="fsModal" role="dialog" aria-modal="true" aria-labelledby="fsTitle">
   <div class="modal-header" id="fsDragHandle">
@@ -317,7 +455,7 @@
       <span class="small">A+</span>
       <span class="scale-badge" id="fsBadge">1.00×</span>
     </div>
-    <p class="small" style="margin-top:10px">Tip: Your preference is saved and applied site-wide.</p>
+    <p class="small" style="margin-top:10px">Tip: Your preference is saved and applied across the entire interface.</p>
   </div>
   <div class="modal-footer modal-actions">
     <button class="btn ghost" id="fsReset">Reset</button>
@@ -325,160 +463,23 @@
   </div>
 </div>
 
-<!-- ===== MAIN CONTENT (Scaled, Fit-to-Screen) ===== -->
-<div class="shell-viewport">
-  <div class="shell">
-
-    <!-- AUTH GATE -->
-    <section id="gate" class="card">
-      <h2 class="gate-title">Welcome, Doctor</h2>
-      <p class="gate-sub">Please sign in to build and track your personalized NEET SS plan.</p>
-
-      <div id="loginBox">
-        <div class="input"><input id="loginEmail" type="email" required><label>Email</label></div>
-        <div class="input"><input id="loginPassword" type="password" required><label>Password</label></div>
-        <div class="row">
-          <button class="btn primary" id="loginBtn">Login</button>
-          <button class="btn ghost" id="showReg">Create Account</button>
-        </div>
-      </div>
-
-      <div id="regBox" style="display:none">
-        <div class="input"><input id="regName" required><label>Full Name</label></div>
-        <div class="input"><input id="regEmail" type="email" required><label>Email</label></div>
-        <div class="input"><input id="regGoal"><label>Goal (e.g., Surgical Gastroenterology)</label></div>
-        <div class="input"><input id="regPassword" type="password" required><label>Password</label></div>
-        <div class="row">
-          <button class="btn primary" id="regBtn">Register</button>
-          <button class="btn ghost" id="showLogin">Back to Login</button>
-        </div>
-      </div>
-
-      <p id="authHint" class="muted" style="margin-top:8px"></p>
-    </section>
-
-    <!-- APP -->
-    <section id="app" class="card">
-      <div class="tabs" id="tabs">
-        <button class="tab active" data-tab="builder">Plan Builder</button>
-        <button class="tab" data-tab="weekly">Weekly</button>
-        <button class="tab" data-tab="daily">Daily</button>
-        <button class="tab" data-tab="progress">Progress</button>
-        <button class="tab" data-tab="saved">Saved Plans</button>
-        <button class="tab" data-tab="help">Help</button>
-      </div>
-
-      <div class="content">
-        <!-- BUILDER -->
-        <div id="panel-builder">
-          <div id="greet" class="summary" style="display:none"></div>
-
-          <div class="builder-grid">
-            <div class="field">
-              <div class="label">Start Date</div>
-              <input id="start" type="date" required>
-            </div>
-            <div class="field">
-              <div class="label">Exam Date</div>
-              <input id="exam" type="date" required>
-            </div>
-            <div class="field">
-              <div class="label">Study Hours / Day</div>
-              <input id="hours" type="number" step="0.5" value="6" required>
-            </div>
-            <div class="field">
-              <div class="label">Number of Mocks</div>
-              <input id="mocks" type="number" min="0" value="4" required>
-            </div>
-            <div class="field">
-              <div class="label">Average Minutes per MCQ</div>
-              <input id="avg_mcq" type="number" step="0.1" min="1" max="5" value="2.5" required>
-            </div>
-          </div>
-
-          <div class="actions-row">
-            <button class="btn primary" id="genBtn">Generate Plan</button>
-            <button class="btn ghost" id="saveBtn" style="display:none">💾 Save Plan</button>
-            <button class="btn ghost" id="continueBtn" style="display:none">🧭 Continue Plan</button>
-          </div>
-
-          <div id="summary" class="summary" style="display:none"></div>
-        </div>
-
-        <!-- WEEKLY -->
-        <div id="panel-weekly" style="display:none">
-          <div id="weeklyList"></div>
-        </div>
-
-        <!-- DAILY -->
-        <div id="panel-daily" style="display:none">
-          <div id="dailyList"></div>
-        </div>
-
-        <!-- PROGRESS -->
-        <div id="panel-progress" style="display:none">
-          <div class="summary" id="progressSummary">Progress overview will appear after you generate or open a plan.</div>
-          <div class="donuts" id="donuts"></div>
-          <div class="row" style="margin-top:12px">
-            <button class="btn ghost" id="syncBtn" title="Try saving progress to server">⬆️ Save Progress to Server</button>
-            <button class="btn ghost" id="clearProgBtn">🧹 Clear Local Progress</button>
-          </div>
-        </div>
-
-        <!-- SAVED PLANS -->
-        <div id="panel-saved" style="display:none">
-          <div id="savedPlans"></div>
-        </div>
-
-        <!-- HELP -->
-        <div id="panel-help" style="display:none">
-          <div class="summary">
-            <b>Tips</b><br>
-            • Mark progress per day under <b>Daily</b> (Theory / MCQ / Recall / Mock).<br>
-            • Weekly completion is auto-calculated from daily marks.<br>
-            • Use <b>Progress</b> to view donut charts per component.<br>
-            • Your progress is stored locally and automatically synced to the server after each mark (with a 1s debounce).
-          </div>
-        </div>
-      </div>
-    </section>
-  </div>
-</div>
-
-<!-- ===== FOOTER ===== -->
-<footer>
-  <div class="footer-inner">
-    <p class="footer-title">© 2025 Sushruta Educations LLP · All Rights Reserved</p>
-    <p class="footer-text">Download the app 📲 and avail an exclusive 72-hour free trial 🆓 to access the complete app content 📚:</p>
-    <p class="footer-links">
-      App Store 🍏 — <a href="https://apps.apple.com/in/app/sushruta-lgs/id6443898817" target="_blank" rel="noopener">https://apps.apple.com/in/app/sushruta-lgs/id6443898817</a>
-      <br/>
-      Google Play 📱 — <a href="https://play.google.com/store/apps/details?id=com.ginger.sushruta" target="_blank" rel="noopener">https://play.google.com/store/apps/details?id=com.ginger.sushruta</a>
-    </p>
-  </div>
-</footer>
-
 <div id="toast"></div>
 
 <script>
-/* ==================== CONFIG & STATE ==================== */
+/* ==================== CONFIG & STATE (kept intact) ==================== */
 const API = 'https://neetss-planner-735b64816561.herokuapp.com/api';
 let token = localStorage.getItem('token');
 let currentPlan = null;
 let currentPlanId = null;
 let userName = '';
-let progress = {}; // { [date]: {theory, mcq, recall, mock} }
+let progress = {};
 let debouncedSaveToServer = null;
 
-/* UI scale persistence */
+/* Restore global scale on load */
 (function initScale(){
-  const storedUserScale = parseFloat(localStorage.getItem('userScale'));
-  if(storedUserScale && storedUserScale >= 0.8 && storedUserScale <= 1.6){
-    document.documentElement.style.setProperty('--user-scale', storedUserScale);
-  }
-  const storedUiScale = parseFloat(localStorage.getItem('uiScale'));
-  if(storedUiScale && storedUiScale >= 0.8 && storedUiScale <= 2){
-    document.documentElement.style.setProperty('--ui-scale', storedUiScale);
+  const storedScale = parseFloat(localStorage.getItem('globalScale'));
+  if(storedScale && storedScale >= 0.8 && storedScale <= 1.6){
+    document.documentElement.style.setProperty('--scale', storedScale);
   }
 })();
 
@@ -487,13 +488,9 @@ const toast = (msg)=>{
   const t = $('toast'); t.textContent = msg; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'), 2600);
 };
+function debounce(fn, delay){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), delay); }; }
 
-/* ==================== UTILITIES ==================== */
-function debounce(fn, delay){
-  let t; return (...args)=>{ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), delay); };
-}
-
-/* ----------------------- Dark mode ----------------------- */
+/* ----------------------- Dark mode (kept) ----------------------- */
 const applyTheme = ()=>{
   const dm = localStorage.getItem('theme') === 'dark';
   document.documentElement.classList.toggle('dark', dm);
@@ -505,7 +502,7 @@ $('darkToggle').onclick = ()=>{
 };
 applyTheme();
 
-/* ----------------------- Auth UI ------------------------- */
+/* ----------------------- Auth UI (kept) ------------------------- */
 $('showReg')?.addEventListener('click', ()=>{ $('loginBox').style.display='none'; $('regBox').style.display='block'; $('authHint').textContent=''; });
 $('showLogin')?.addEventListener('click', ()=>{ $('regBox').style.display='none'; $('loginBox').style.display='block'; $('authHint').textContent=''; });
 
@@ -545,7 +542,7 @@ async function afterLogin(){
   switchTab('builder');
 }
 
-/* ----------------------- Tabs ---------------------------- */
+/* ----------------------- Tabs (kept) ---------------------------- */
 const tabButtons = Array.from(document.querySelectorAll('.tab'));
 tabButtons.forEach(btn=>btn.addEventListener('click', ()=>switchTab(btn.dataset.tab)));
 function switchTab(name){
@@ -560,22 +557,18 @@ function switchTab(name){
   if(name==='saved') loadSavedPlans();
 }
 
-/* ------------------ API helpers with fallback ------------------ */
-async function getJson(url, opts={}){
-  const r = await fetch(url, opts);
-  if(!r.ok) throw new Error('HTTP '+r.status);
-  return r.json();
-}
+/* ------------------ API helpers (kept) ------------------ */
+async function getJson(url, opts={}){ const r = await fetch(url, opts); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
 async function listPlans(){
-  try { return await getJson(`${API}/plans/list`, {headers:{Authorization:`Bearer ${token}`}}); }
-  catch { return await getJson(`${API}/plans`, {headers:{Authorization:`Bearer ${token}`}}); }
+  try { return await getJson(`${API}/plans/list`, {headers:{Authorization:`Bearer ${token}`}});
+  } catch { return await getJson(`${API}/plans`, {headers:{Authorization:`Bearer ${token}`}}); }
 }
 async function getPlanById(id){
-  try { return await getJson(`${API}/plans/get/${id}`, {headers:{Authorization:`Bearer ${token}`}}); }
-  catch { return await getJson(`${API}/plans/${id}`, {headers:{Authorization:`Bearer ${token}`}}); }
+  try { return await getJson(`${API}/plans/get/${id}`, {headers:{Authorization:`Bearer ${token}`}});
+  } catch { return await getJson(`${API}/plans/${id}`, {headers:{Authorization:`Bearer ${token}`}}); }
 }
 
-/* ==================== PLAN BUILDER ==================== */
+/* ==================== PLAN BUILDER (kept) ==================== */
 $('genBtn')?.addEventListener('click', async ()=>{
   const payload = {
     start_date:document.getElementById('start').value,
@@ -642,7 +635,7 @@ function showSummary(){
   summary.innerHTML = `<b>${m.start_date}</b> → <b>${m.exam_date}</b> • ${m.days} days • ${m.hours_per_day} h/day • ${ (m.mock_days_indexed||[]).length } mocks`;
 }
 
-/* ==================== SAVED PLANS ==================== */
+/* ==================== SAVED PLANS (kept) ==================== */
 async function loadSavedPlans(){
   try {
     const plans = await listPlans();
@@ -667,7 +660,7 @@ window.openSaved = async (id)=>{
   const d = await getPlanById(id);
   currentPlan = d; currentPlanId = id;
   loadLocalProgress();
-  await loadServerProgress(); // server wins where available
+  await loadServerProgress();
   showSummary();
   document.getElementById('saveBtn').style.display='inline-block';
   document.getElementById('continueBtn').style.display='inline-block';
@@ -680,7 +673,7 @@ window.deletePlan = async (id)=>{
   if(r.ok){ toast('🗑 Deleted'); loadSavedPlans(); }
 };
 
-/* ==================== DAILY / WEEKLY RENDERING ==================== */
+/* ==================== DAILY / WEEKLY (kept) ==================== */
 const hoursOr = (obj, keyMin='minutes', keyHr='hours')=>{
   if(!obj) return {hr:0, label:'0h'};
   const hr = (typeof obj[keyHr] === 'number') ? obj[keyHr] : +( (obj[keyMin]||0) / 60 ).toFixed(1);
@@ -762,13 +755,13 @@ function checkBox(kind, date, isChecked){
 window.onToggle = (date, kind, val)=>{
   if(!progress[date]) progress[date] = {theory:false, mcq:false, recall:false, mock:false};
   progress[date][kind] = val;
-  saveLocalProgress();         // immediate local save
-  scheduleAutoSaveToServer();  // debounced 1s cloud save
+  saveLocalProgress();
+  scheduleAutoSaveToServer();  // 1s debounce to server
   renderWeekly();
   if(document.querySelector('.tab.active')?.dataset.tab==='progress') renderProgress();
 };
 
-/* ==================== PROGRESS: AGGREGATION & CHARTS ==================== */
+/* ==================== PROGRESS (kept) ==================== */
 function loadLocalProgress(){
   if(!currentPlan) { progress = {}; return; }
   const key = progressKey();
@@ -813,15 +806,12 @@ function aggregateProgress(schedule){
 
   return {totals, wkAgg};
 }
-function chunk(arr, size){
-  const out=[]; for(let i=0;i<arr.length;i+=size){ out.push(arr.slice(i,i+size)); } return out;
-}
+function chunk(arr, size){ const out=[]; for(let i=0;i<arr.length;i+=size){ out.push(arr.slice(i,i+size)); } return out; }
 
 function renderProgress(){
   if(!currentPlan){ const ps = document.getElementById('progressSummary'); if(ps) ps.textContent='Open or generate a plan first.'; const dn = document.getElementById('donuts'); if(dn) dn.innerHTML=''; return; }
   const schedule = currentPlan.schedule || [];
   const {totals} = aggregateProgress(schedule);
-
   const pct = (num,den)=> den>0 ? Math.round((num/den)*100) : 0;
 
   const pTheory = pct(totals.theory, totals.denomTheory);
@@ -865,7 +855,7 @@ function donut(label, percent, color){
   </div>`;
 }
 
-/* ==================== SERVER PROGRESS SYNC ==================== */
+/* ==================== SERVER PROGRESS SYNC (kept) ==================== */
 async function saveProgressServer(){
   if(!currentPlan) return;
   try{
@@ -876,7 +866,7 @@ async function saveProgressServer(){
       body:JSON.stringify(payload)
     });
     if(!r.ok) throw 0;
-  }catch{/* silent fail */}
+  }catch{}
 }
 function scheduleAutoSaveToServer(){
   if(!debouncedSaveToServer){
@@ -884,8 +874,6 @@ function scheduleAutoSaveToServer(){
   }
   debouncedSaveToServer();
 }
-
-/* Load progress from server (server overrides matching keys) */
 async function loadServerProgress(){
   if(!currentPlanId) return;
   try{
@@ -902,22 +890,7 @@ async function loadServerProgress(){
   }catch{}
 }
 
-/* Manual sync & clear */
-document.getElementById('syncBtn')?.addEventListener('click', async ()=>{
-  if(!currentPlan){ return toast('No plan'); }
-  try{ await saveProgressServer(); toast('✅ Progress synced'); }
-  catch{ toast('ℹ️ Could not sync. Stored locally.'); }
-});
-document.getElementById('clearProgBtn')?.addEventListener('click', ()=>{
-  if(!currentPlan) return;
-  if(!confirm('Clear local progress for this plan?')) return;
-  progress = {};
-  saveLocalProgress();
-  renderDaily(); renderWeekly(); renderProgress();
-  toast('🧹 Cleared');
-});
-
-/* ==================== CONTINUE PLAN ==================== */
+/* ==================== CONTINUE PLAN (kept) ==================== */
 function findNextUncompletedDate(){
   if(!currentPlan) return null;
   const days = currentPlan.schedule || [];
@@ -930,7 +903,7 @@ function findNextUncompletedDate(){
   return null;
 }
 
-/* ==================== FONT SIZE MODAL LOGIC ==================== */
+/* ==================== FONT SIZE MODAL (GLOBAL) ==================== */
 const fontBtn = document.getElementById('fontBtn');
 const fsModal = document.getElementById('fsModal');
 const fsBackdrop = document.getElementById('fsBackdrop');
@@ -942,33 +915,30 @@ const fsClose  = document.getElementById('fsClose');
 const fsDragHandle = document.getElementById('fsDragHandle');
 
 function openFsModal(){
-  const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--user-scale')) || 1;
+  const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--scale')) || 1;
   fsSlider.value = cur.toFixed(2);
   fsBadge.textContent = cur.toFixed(2)+'×';
   fsBackdrop.style.display='block';
   fsModal.style.display='block';
 }
-function closeFsModal(){
-  fsBackdrop.style.display='none';
-  fsModal.style.display='none';
-}
+function closeFsModal(){ fsBackdrop.style.display='none'; fsModal.style.display='none'; }
 fontBtn?.addEventListener('click', openFsModal);
 fsClose?.addEventListener('click', closeFsModal);
 fsBackdrop?.addEventListener('click', closeFsModal);
 fsSlider?.addEventListener('input', ()=>{
   const v = parseFloat(fsSlider.value||'1') || 1;
   fsBadge.textContent = v.toFixed(2)+'×';
-  // live preview
-  document.documentElement.style.setProperty('--user-scale', v);
+  // Live preview: scales entire interface (header + planner + footer)
+  document.documentElement.style.setProperty('--scale', v);
 });
 fsApply?.addEventListener('click', ()=>{
   const v = parseFloat(fsSlider.value||'1') || 1;
-  localStorage.setItem('userScale', v);
+  localStorage.setItem('globalScale', v);
   closeFsModal();
 });
 fsReset?.addEventListener('click', ()=>{
-  document.documentElement.style.setProperty('--user-scale','1');
-  localStorage.removeItem('userScale');
+  document.documentElement.style.setProperty('--scale','1');
+  localStorage.removeItem('globalScale');
   fsSlider.value = 1;
   fsBadge.textContent = '1.00×';
 });
@@ -995,7 +965,7 @@ fsReset?.addEventListener('click', ()=>{
     const dy = cy - startY;
     modal.style.left = (origX + dx) + 'px';
     modal.style.top  = (origY + dy) + 'px';
-    modal.style.transform = 'translate(0,0)'; // switch from centered translate to absolute move
+    modal.style.transform = 'translate(0,0)';
     if(e.cancelable) e.preventDefault();
   };
   const onUp = ()=>{
@@ -1009,7 +979,7 @@ fsReset?.addEventListener('click', ()=>{
   handle.addEventListener('touchstart', onDown, {passive:false});
 })(fsModal, fsDragHandle);
 
-/* ==================== BOOT ==================== */
+/* ==================== BOOT (kept) ==================== */
 (async function boot(){
   if(!token) return;
   try{
@@ -1026,18 +996,6 @@ fsReset?.addEventListener('click', ()=>{
     switchTab('builder');
   }catch{}
 })();
-
-/* Decorative pulse highlight for Continue Plan jump */
-const style = document.createElement('style');
-style.textContent = `
-  .pulse{animation:pulse 1.2s ease-out 1}
-  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.45)}100%{box-shadow:0 0 0 26px rgba(16,185,129,0)}}
-`;
-document.head.appendChild(style);
-
-/* Expose open/delete for Saved Plans */
-window.openSaved = window.openSaved;
-window.deletePlan = window.deletePlan;
 </script>
 </body>
 </html>
