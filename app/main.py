@@ -35,7 +35,7 @@ if os.path.exists(static_dir):
 # Routers
 # -------------------------------------------------------------------
 try:
-    from .routers import auth, planner, plans
+    from app.routers import auth, planner, plans
     app.include_router(auth.router, prefix="/api", tags=["Authentication"])
     app.include_router(planner.router, prefix="/api", tags=["Planner"])
     app.include_router(plans.router, prefix="/api", tags=["Plans"])
