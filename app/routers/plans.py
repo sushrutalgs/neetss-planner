@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from ..database import get_db
-from .. import models
+from app import models
 from ..schemas import PlanRequest, PlanResponse, SavePlanRequest, PlanListItem
 from ..auth import get_current_user
 from ..planner import build_schedule
