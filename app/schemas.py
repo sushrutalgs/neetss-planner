@@ -37,7 +37,7 @@ class PlanRequest(BaseModel):
     exam_date: date = Field(..., description="Exam date (YYYY-MM-DD, inclusive)")
     hours_per_day: float = Field(..., gt=0, description="Daily study hours (e.g., 5.5)")
     mocks: int = Field(2, ge=0, description="Number of mock exams to schedule")
-    avg_mcq_minutes: float = Field(2.5, ge=2.0, le=3.0)
+    avg_minutes_per_mcq: float = Field(2.5, ge=2.0, le=3.0)
     plan_type: str = Field("full", description="full|theory|mcq|revision|mock")
 
 class PlanResponse(BaseModel):
