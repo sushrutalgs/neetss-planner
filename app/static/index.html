@@ -18,6 +18,10 @@
     --muted:#475569;
     --border:#dbe3ef;
     --chip:#eef2ff;
+
+    --ring:#d1d5db;         /* donut base ring */
+    --ring-thick:12;        /* donut thickness */
+    --radius:52;            /* donut radius */
   }
   /* Dark mode vars */
   :root.dark {
@@ -32,6 +36,8 @@
     --muted:#94a3b8;
     --border:#1f2937;
     --chip:#111827;
+
+    --ring:#243244;
   }
 
   *{box-sizing:border-box}
@@ -42,59 +48,65 @@
     color:var(--text);
     background:var(--bg);
     overflow-x:hidden;
-    font-size:17px; /* ← slightly larger */
+    font-size:17px;
   }
 
   /* Header */
   header{
     background:linear-gradient(135deg,var(--primary),var(--secondary));
     color:#fff;
-    padding:18px 20px;
+    padding:16px clamp(14px,3vw,24px);
     position:sticky;top:0;z-index:20;
     box-shadow:var(--elev);
     display:flex;align-items:center;justify-content:space-between;gap:12px;
   }
   .brand{display:flex;align-items:center;gap:12px;}
-  .brand img{height:44px;border-radius:8px;opacity:.95}
-  .brand h1{margin:0;font-size:22px;font-weight:700;letter-spacing:.2px}
-  .subtitle{opacity:.85;font-size:14px;margin:0}
+  .brand img{height:44px;border-radius:10px;opacity:.97;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+  .brand h1{margin:0;font-size:clamp(18px,3.1vw,24px);font-weight:800;letter-spacing:.2px}
+  .subtitle{opacity:.92;font-size:clamp(12px,2.1vw,14px);margin:0}
 
   .header-actions{display:flex;gap:10px;align-items:center}
   .toggle{
-    background:transparent;border:1px solid #ffffff55;color:#fff;border-radius:10px;
-    padding:8px 12px;cursor:pointer;font-size:14px;transition:.2s;
+    background:transparent;border:1px solid #ffffff55;color:#fff;border-radius:12px;
+    padding:10px 14px;cursor:pointer;font-size:14px;transition:.2s, transform .08s;
+    backdrop-filter: blur(4px);
   }
-  .toggle:hover{background:#ffffff1a}
+  .toggle:hover{background:#ffffff1f}
+  .toggle:active{transform:scale(.98)}
 
   /* Shell */
-  .shell{max-width:1200px;margin:24px auto 64px;padding:0 16px;}
+  .shell{max-width:1200px;margin:22px auto 72px;padding:0 clamp(10px,3.5vw,18px);}
   .card{
     background:var(--card-bg);
     border:1px solid var(--border);
-    border-radius:16px;
+    border-radius:18px;
     box-shadow:var(--elev);
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(10px);
+    overflow:hidden;
   }
 
-  /* Auth gate (full screen first) */
+  /* Auth gate */
   #gate{
-    max-width:560px;margin:36px auto;padding:28px 24px;
-    text-align:left;
+    max-width:680px;margin:28px auto;padding:24px clamp(16px,4vw,28px);
   }
-  .gate-title{margin:0 0 6px;font-size:26px;font-weight:700}
+  .gate-title{margin:0 0 6px;font-size:28px;font-weight:800;letter-spacing:.1px}
   .gate-sub{margin:0 0 18px;color:var(--muted)}
   .row{display:flex;gap:12px;flex-wrap:wrap}
-  .input{position:relative;flex:1 1 100%}
+  .input{position:relative;flex:1 1 260px;min-width:220px}
   .input input{
-    width:100%;padding:14px 12px;border:1px solid var(--border);border-radius:12px;background:transparent;color:var(--text);
-    font-size:16px;outline:none;transition:.15s box-shadow;
+    width:100%;padding:14px 12px;border:1px solid var(--border);border-radius:14px;background:transparent;color:var(--text);
+    font-size:16px;outline:none;transition:.15s box-shadow,.15s border-color;
   }
+  .input input:focus{box-shadow:0 0 0 4px rgba(37,99,235,.12);border-color:#93c5fd}
   .input label{
-    position:absolute;left:12px;top:10px;padding:0 6px;background:var(--card-bg);
-    color:#6b7280;font-size:12px;pointer-events:none;border-radius:6px;
+    position:absolute;left:12px;top:-8px;padding:0 6px;background:var(--card-bg);
+    color:#6b7280;font-size:12px;border-radius:6px;
   }
-  .btn{border:none;border-radius:12px;padding:12px 16px;font-weight:600;cursor:pointer;font-size:15px}
-  .btn.primary{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;box-shadow:0 6px 16px rgba(37,99,235,.25)}
+  .btn{border:none;border-radius:14px;padding:12px 16px;font-weight:700;cursor:pointer;font-size:15px;transition:.18s, transform .08s}
+  .btn:active{transform:translateY(1px) scale(.99)}
+  .btn.primary{
+    background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;box-shadow:0 10px 22px rgba(37,99,235,.28)
+  }
   .btn.primary:hover{filter:brightness(1.08)}
   .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
   .muted{color:var(--muted)}
@@ -103,57 +115,84 @@
   /* App (after login) */
   #app{display:none}
   .tabs{
-    margin-top:12px;
-    display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px dashed var(--border);padding-bottom:8px;
+    margin-top:8px;
+    display:flex;gap:10px;flex-wrap:wrap;border-bottom:1px dashed var(--border);padding:10px clamp(10px,3vw,16px);
+    background:linear-gradient(180deg,transparent,rgba(0,0,0,.02));
   }
   .tab{
     background:var(--chip);color:var(--text);border:1px solid var(--border);
-    padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:600;font-size:14px;
+    padding:10px 14px;border-radius:12px;cursor:pointer;font-weight:700;font-size:14px;transition:.18s, transform .06s;
   }
+  .tab:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.06)}
   .tab.active{background:var(--accent);border-color:transparent;color:#081016}
-  .content{margin-top:16px;padding:16px}
+  .content{margin-top:0;padding:16px clamp(14px,3.5vw,22px) 24px}
 
   /* Plan Builder */
-  .builder-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  @media (max-width:900px){.builder-grid{grid-template-columns:1fr}}
+  .builder-grid{display:grid;grid-template-columns:repeat(5, minmax(170px,1fr));gap:14px}
+  @media (max-width:1100px){.builder-grid{grid-template-columns:repeat(3, minmax(170px,1fr))}}
+  @media (max-width:720px){.builder-grid{grid-template-columns:repeat(2, minmax(150px,1fr))}}
+  @media (max-width:460px){.builder-grid{grid-template-columns:1fr}}
   .field .label{font-size:13px;color:var(--muted);margin-bottom:6px}
   .field input{
-    width:100%;padding:12px;border:1px solid var(--border);border-radius:12px;background:transparent;color:var(--text);font-size:16px;
+    width:100%;padding:12px 12px;border:1px solid var(--border);border-radius:12px;background:transparent;color:var(--text);font-size:16px;
+    transition:.15s box-shadow,.15s border-color;
   }
+  .field input:focus{box-shadow:0 0 0 4px rgba(37,99,235,.12);border-color:#93c5fd}
+
+  .actions-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
 
   /* Summary ribbon */
   .summary{
-    background:#e8f1ff22;border-left:6px solid var(--accent);padding:12px 14px;border-radius:12px;margin-bottom:12px
+    background:#e8f1ff22;border-left:6px solid var(--accent);padding:12px 14px;border-radius:12px;margin:12px 0
   }
 
-  /* Accordion */
-  details{border:1px solid var(--border);border-radius:12px;margin:10px 0;background:transparent}
+  /* Accordion / day list */
+  details{border:1px solid var(--border);border-radius:14px;margin:10px 0;background:transparent;transition:border-color .2s}
+  details:hover{border-color:#a5b4fc}
   summary{
-    list-style:none;padding:14px 16px;cursor:pointer;font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:10px
+    list-style:none;padding:14px 16px;cursor:pointer;font-weight:800;display:flex;justify-content:space-between;align-items:center;gap:10px;
   }
   summary::-webkit-details-marker{display:none}
-  .pill{font-size:12px;border:1px solid var(--border);padding:4px 8px;border-radius:999px;color:var(--muted);background:var(--chip)}
-  .day{padding:10px 14px;border-top:1px dashed var(--border)}
+  .pill{font-size:12px;border:1px solid var(--border);padding:6px 10px;border-radius:999px;color:var(--muted);background:var(--chip);font-weight:700}
+  .day{padding:12px 14px;border-top:1px dashed var(--border);display:grid;gap:8px}
   .phase-foundation{border-left:6px solid #22c55e}
   .phase-consolidation{border-left:6px solid #3b82f6}
   .phase-revision{border-left:6px solid #f59e0b}
   .row-split{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
-  .checks{display:flex;gap:8px;flex-wrap:wrap}
+  .checks{display:flex;gap:10px;flex-wrap:wrap}
+
+  /* Enhanced checkboxes */
   .chk{
-    display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border);
-    padding:6px 8px;border-radius:10px;background:var(--chip);font-size:13px;cursor:pointer;
+    display:inline-flex;gap:8px;align-items:center;border:1px solid var(--border);
+    padding:8px 10px;border-radius:12px;background:var(--chip);font-size:14px;cursor:pointer;font-weight:700;
+    transition:.18s, transform .06s;
   }
-  .chk input{transform:scale(1.1)}
+  .chk:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(0,0,0,.07)}
+  .chk input{
+    appearance:none;width:22px;height:22px;border:2px solid #94a3b8;border-radius:7px;display:grid;place-items:center;
+    transition:.18s background-color,.18s border-color,.18s transform;
+    background:#fff;
+  }
+  :root.dark .chk input{background:#0b1220}
+  .chk input:checked{
+    background:var(--accent);border-color:transparent;box-shadow:0 0 0 4px rgba(16,185,129,.18) inset, 0 0 0 3px rgba(16,185,129,.2);
+  }
+  .chk input:active{transform:scale(.96)}
+
   .small{font-size:12px;color:var(--muted)}
-  .spacer{height:8px}
+  .spacer{height:4px}
 
   /* Donut charts */
   .donuts{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
   @media (max-width:900px){.donuts{grid-template-columns:repeat(2,1fr)}}
-  .donut-card{border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center}
-  .donut-wrap{width:120px;height:120px;margin:6px auto;position:relative}
+  @media (max-width:480px){.donuts{grid-template-columns:1fr}}
+  .donut-card{border:1px solid var(--border);border-radius:16px;padding:16px;text-align:center;transition:.18s}
+  .donut-card:hover{box-shadow:0 12px 26px rgba(0,0,0,.08)}
+  .donut-wrap{width:132px;height:132px;margin:8px auto;position:relative}
   .donut-wrap svg{transform:rotate(-90deg)}
-  .donut-center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800}
+  .donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;gap:2px}
+  .donut-center .big{font-size:22px}
+  .donut-arc{transition:stroke-dashoffset .6s cubic-bezier(.22,1,.36,1)}
 
   /* Toast */
   #toast{
@@ -249,9 +288,10 @@
           </div>
         </div>
 
-        <div class="row" style="margin-top:8px">
+        <div class="actions-row">
           <button class="btn primary" id="genBtn">Generate Plan</button>
           <button class="btn ghost" id="saveBtn" style="display:none">💾 Save Plan</button>
+          <button class="btn ghost" id="continueBtn" style="display:none">🧭 Continue Plan</button>
         </div>
 
         <div id="summary" class="summary" style="display:none"></div>
@@ -289,7 +329,7 @@
           • Mark progress per day under <b>Daily</b> (Theory / MCQ / Recall / Mock).<br>
           • Weekly completion is auto-calculated from daily marks.<br>
           • Use <b>Progress</b> to view donut charts per component.<br>
-          • Your progress is stored locally and (optionally) synced to server.
+          • Your progress is stored locally and automatically synced to the server after each mark (with a 1s debounce).
         </div>
       </div>
     </div>
@@ -299,18 +339,29 @@
 <div id="toast"></div>
 
 <script>
+/* ==================== CONFIG & STATE ==================== */
 const API = 'https://neetss-planner-735b64816561.herokuapp.com/api';
 let token = localStorage.getItem('token');
 let currentPlan = null;
 let currentPlanId = null; // if opened from saved
 let userName = '';
 let progress = {}; // { [date]: {theory:bool, mcq:bool, recall:bool, mock:bool} }
+let debouncedSaveToServer = null;
 
 const $ = (id)=>document.getElementById(id);
 const toast = (msg)=>{
   const t = $('toast'); t.textContent = msg; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'), 2600);
 };
+
+/* ==================== UTILITIES ==================== */
+function debounce(fn, delay){
+  let t;
+  return (...args)=>{
+    clearTimeout(t);
+    t = setTimeout(()=>fn.apply(this,args), delay);
+  };
+}
 
 /* ----------------------- Dark mode ----------------------- */
 const applyTheme = ()=>{
@@ -395,7 +446,7 @@ async function getPlanById(id){
   catch { return await getJson(`${API}/plans/${id}`, {headers:{Authorization:`Bearer ${token}`}}); }
 }
 
-/* ------------------- Plan builder ------------------- */
+/* ==================== PLAN BUILDER ==================== */
 $('genBtn').onclick = async ()=>{
   const payload = {
     start_date:$('start').value,
@@ -415,6 +466,7 @@ $('genBtn').onclick = async ()=>{
   loadLocalProgress(); // empty fresh mapping for this plan (if exists)
   showSummary();
   $('saveBtn').style.display='inline-block';
+  $('continueBtn').style.display='inline-block';
   toast('✅ Plan generated');
   switchTab('weekly');
 };
@@ -431,6 +483,30 @@ $('saveBtn').onclick = async ()=>{
   if(!r.ok){ toast('❌ Failed to save plan'); return; }
   toast('💾 Plan saved');
   await loadSavedPlans();
+  // after saving, try to discover id to attach autosave to saved plan
+  try {
+    const plans = await listPlans();
+    const latest = plans.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
+    if(latest) currentPlanId = latest.id;
+  } catch {}
+};
+
+$('continueBtn').onclick = ()=>{
+  if(!currentPlan) return toast('Generate or open a plan first.');
+  const date = findNextUncompletedDate();
+  if(!date){ toast('🎉 All days completed!'); return; }
+  switchTab('daily');
+  requestAnimationFrame(()=>{
+    const el = document.querySelector(`[data-day="${date}"]`);
+    if(el){
+      // open its <details> and scroll
+      const parent = el.closest('details');
+      if(parent) parent.open = true;
+      el.scrollIntoView({behavior:'smooth', block:'center'});
+      el.classList.add('pulse');
+      setTimeout(()=>el.classList.remove('pulse'), 1200);
+    }
+  });
 };
 
 function showSummary(){
@@ -439,19 +515,18 @@ function showSummary(){
   $('summary').innerHTML = `<b>${m.start_date}</b> → <b>${m.exam_date}</b> • ${m.days} days • ${m.hours_per_day} h/day • ${ (m.mock_days_indexed||[]).length } mocks`;
 }
 
-/* ------------------- Saved Plans ------------------- */
+/* ==================== SAVED PLANS ==================== */
 async function loadSavedPlans(){
   try {
     const plans = await listPlans();
     const box = $('savedPlans');
     if(!plans.length){ box.innerHTML = '<p class="muted">No saved plans yet.</p>'; return; }
+    // ⛔️ PDF / ICS download removed per requirement
     box.innerHTML = '<h3>💾 Saved Plans</h3>' + plans.map(p=>`
       <div class="row-split" style="border:1px dashed var(--border);padding:10px;border-radius:12px;margin:8px 0">
         <div><b>${p.name}</b><div class="small">${new Date(p.created_at).toLocaleString()}</div></div>
-        <div>
+        <div class="row" style="gap:8px">
           <button class="btn ghost" onclick="openSaved(${p.id})">Open</button>
-          <button class="btn ghost" onclick="downloadPlan(${p.id},'pdf')">PDF</button>
-          <button class="btn ghost" onclick="downloadPlan(${p.id},'ics')">ICS</button>
           <button class="btn" style="background:var(--danger);color:#fff" onclick="deletePlan(${p.id})">🗑</button>
         </div>
       </div>
@@ -464,14 +539,13 @@ window.openSaved = async (id)=>{
   const d = await getPlanById(id);
   currentPlan = d; currentPlanId = id;
   loadLocalProgress(); // load any local progress for this plan
+  // Attempt server-side progress load & merge (server wins)
+  await loadServerProgress();
   showSummary();
+  $('saveBtn').style.display='inline-block';
+  $('continueBtn').style.display='inline-block';
   toast('📘 Plan opened');
   switchTab('weekly');
-};
-window.downloadPlan = async (id,type)=>{
-  const r = await fetch(`${API}/plans/download/${id}?type=${type}`, {headers:{Authorization:`Bearer ${token}`}});
-  const b = await r.blob();
-  const a = document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`StudyPlan_${id}.${type}`; a.click();
 };
 window.deletePlan = async (id)=>{
   if(!confirm('Delete this plan?')) return;
@@ -479,7 +553,7 @@ window.deletePlan = async (id)=>{
   if(r.ok){ toast('🗑 Deleted'); loadSavedPlans(); }
 };
 
-/* ------------------- Daily / Weekly rendering ------------------- */
+/* ==================== DAILY / WEEKLY RENDERING ==================== */
 const hoursOr = (obj, keyMin='minutes', keyHr='hours')=>{
   if(!obj) return {hr:0, label:'0h'};
   const hr = (typeof obj[keyHr] === 'number') ? obj[keyHr] : +( (obj[keyMin]||0) / 60 ).toFixed(1);
@@ -530,7 +604,7 @@ function renderDaily(){
 
     const checked = getProgressForDate(d.date);
     return `
-    <details class="${dayPhaseClass(d.phase)}">
+    <details class="${dayPhaseClass(d.phase)}" data-day="${d.date}">
       <summary>
         <div><b>${d.date}</b> — ${d.phase}</div>
         <div class="pill">${t.label} · ${m.label} · ${r.label}${d.is_mock_day?` · Mock ${mk.label}`:''}</div>
@@ -559,13 +633,14 @@ function checkBox(kind, date, isChecked){
 window.onToggle = (date, kind, val)=>{
   if(!progress[date]) progress[date] = {theory:false, mcq:false, recall:false, mock:false};
   progress[date][kind] = val;
-  saveLocalProgress();
+  saveLocalProgress();                 // ✅ immediate local save
+  scheduleAutoSaveToServer();          // ✅ debounced auto-save to server
   // live-refresh weekly & progress tab so user sees updates
   renderWeekly();
   if(document.querySelector('.tab.active')?.dataset.tab==='progress') renderProgress();
 };
 
-/* ------------------- Progress aggregation & charts ------------------- */
+/* ==================== PROGRESS: AGGREGATION & CHARTS ==================== */
 function loadLocalProgress(){
   if(!currentPlan) { progress = {}; return; }
   const key = progressKey();
@@ -642,24 +717,31 @@ function renderProgress(){
 }
 
 function donut(label, percent, color){
-  const r=52, c=2*Math.PI*r, off = c*(1-percent/100);
+  const r=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--radius'))||52;
+  const thick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ring-thick'))||12;
+  const c=2*Math.PI*r, off = c*(1-percent/100);
   return `
   <div class="donut-card">
     <div class="donut-wrap">
-      <svg width="120" height="120">
-        <circle cx="60" cy="60" r="${r}" stroke="#e5e7eb33" stroke-width="12" fill="none"></circle>
-        <circle cx="60" cy="60" r="${r}" stroke="${color}" stroke-width="12" fill="none"
+      <svg width="132" height="132">
+        <circle cx="66" cy="66" r="${r}" stroke="url(#ringBaseGradient)" stroke-width="${thick}" fill="none" opacity=".45"></circle>
+        <defs>
+          <linearGradient id="ringBaseGradient" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="${getComputedStyle(document.documentElement).getPropertyValue('--ring').trim()}" />
+            <stop offset="100%" stop-color="#9ca3af" />
+          </linearGradient>
+        </defs>
+        <circle class="donut-arc" cx="66" cy="66" r="${r}" stroke="${color}" stroke-width="${thick}" fill="none"
                 stroke-dasharray="${c}" stroke-dashoffset="${off}" stroke-linecap="round"></circle>
       </svg>
-      <div class="donut-center">${percent}%</div>
+      <div class="donut-center"><div class="big">${percent}%</div><div class="small">${label}</div></div>
     </div>
-    <div class="small">${label}</div>
   </div>`;
 }
 
-/* ------------------- Optional: save progress to server ------------------- */
-$('syncBtn').onclick = async ()=>{
-  if(!currentPlan){ return toast('No plan'); }
+/* ==================== SERVER PROGRESS SYNC (AUTO) ==================== */
+async function saveProgressServer(){
+  if(!currentPlan) return;
   try{
     const payload = { plan_id: currentPlanId, progress_json: progress };
     const r = await fetch(`${API}/plans/progress/save`, {
@@ -668,6 +750,46 @@ $('syncBtn').onclick = async ()=>{
       body:JSON.stringify(payload)
     });
     if(!r.ok) throw 0;
+    // optional toast suppressed to avoid noise; uncomment if desired:
+    // toast('✅ Progress synced');
+  }catch{
+    // silent fail; local storage remains the source of truth when offline
+  }
+}
+function scheduleAutoSaveToServer(){
+  if(!debouncedSaveToServer){
+    debouncedSaveToServer = debounce(saveProgressServer, 1000); // ✅ 1s debounce
+  }
+  debouncedSaveToServer();
+}
+
+/* Attempt to load existing progress from server (server overrides local) */
+async function loadServerProgress(){
+  if(!currentPlanId) return; // Only for saved plans
+  try{
+    // Try common patterns
+    let r = await fetch(`${API}/plans/progress/get?plan_id=${currentPlanId}`, {headers:{Authorization:`Bearer ${token}`}});
+    if(!r.ok){
+      // fallback route variants for compatibility
+      r = await fetch(`${API}/plans/${currentPlanId}/progress`, {headers:{Authorization:`Bearer ${token}`}});
+    }
+    if(!r.ok) return;
+    const data = await r.json();
+    if(data && data.progress_json){
+      // server wins – merge/overwrite where present
+      progress = {...progress, ...data.progress_json};
+      saveLocalProgress();
+      renderDaily(); renderWeekly(); renderProgress();
+      toast('☁️ Progress loaded from server');
+    }
+  }catch{/* ignore */}
+}
+
+/* ==================== OPTIONAL: MANUAL SAVE BUTTON ==================== */
+$('syncBtn').onclick = async ()=>{
+  if(!currentPlan){ return toast('No plan'); }
+  try{
+    await saveProgressServer();
     toast('✅ Progress synced');
   }catch{
     toast('ℹ️ Could not sync. Stored locally.');
@@ -682,7 +804,21 @@ $('clearProgBtn').onclick = ()=>{
   toast('🧹 Cleared');
 };
 
-/* ------------------- App boot ------------------- */
+/* ==================== CONTINUE PLAN (NEXT UNCOMPLETED) ==================== */
+function findNextUncompletedDate(){
+  if(!currentPlan) return null;
+  const days = currentPlan.schedule || [];
+  for(const d of days){
+    const mark = getProgressForDate(d.date);
+    const needs = ['theory','mcq','recall'];
+    if(d.is_mock_day) needs.push('mock');
+    const done = needs.every(k=>!!mark[k]);
+    if(!done) return d.date;
+  }
+  return null;
+}
+
+/* ==================== APP BOOT ==================== */
 (async function boot(){
   if(!token) return;    // stay at auth gate
   try{
@@ -699,6 +835,17 @@ $('clearProgBtn').onclick = ()=>{
     switchTab('builder');
   }catch{}
 })();
+
+/* ==================== DECORATIVE: PULSE HIGHLIGHT ==================== */
+const style = document.createElement('style');
+style.textContent = `
+  .pulse{animation:pulse 1.2s ease-out 1}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(16,185,129,.45)}
+    100%{box-shadow:0 0 0 22px rgba(16,185,129,0)}
+  }
+`;
+document.head.appendChild(style);
 </script>
 </body>
 </html>
