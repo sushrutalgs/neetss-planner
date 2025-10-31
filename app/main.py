@@ -5,6 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .database import init_db
 from .routers import users, plans, progress
+from fastapi.staticfiles import StaticFiles
+
+# Serve static frontend
+app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
 
 app = FastAPI(
     title="NEET SS Study Planner API",
