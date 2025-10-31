@@ -18,7 +18,7 @@ app = FastAPI(
 # -------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # you can restrict to your frontend domain later
+    allow_origins=["*"],  # Later restrict to your frontend domain, e.g. ["https://neetssplanner.in"]
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -32,18 +32,37 @@ if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # -------------------------------------------------------------------
-# Routers
+# Database Initialization
 # -------------------------------------------------------------------
 try:
-    from app.routers import auth, plans, progress, users
-    app.include_router(auth.router, prefix="/api", tags=["Auth"])
+    from app.database import init_db
+    @app.on_event("startup")
+    def startup_event():
+        try:
+            init_db()
+            print("✅ Database initialized successfully.")
+        except Exception as e:
+            print(f"⚠️ Database initialization failed: {e}")
+except Exception as e:
+    print(f"⚠️ Could not import database initialization: {e}")
+
+# -------------------------------------------------------------------
+# Routers Registration
+# -------------------------------------------------------------------
+try:
+    # Import core auth utilities (not a router)
+    from app import auth  
+
+    # Import API routers
+    from app.routers import users, plans, progress
+
+    app.include_router(users.router, prefix="/api", tags=["Users"])
     app.include_router(plans.router, prefix="/api", tags=["Plans"])
     app.include_router(progress.router, prefix="/api", tags=["Progress"])
-    app.include_router(users.router, prefix="/api", tags=["Users"])
+
     print("✅ Routers loaded successfully.")
 except Exception as e:
     print(f"⚠️ Warning: Routers not loaded → {e}")
-
 
 # -------------------------------------------------------------------
 # Serve Frontend (index.html at root)
@@ -63,9 +82,8 @@ def serve_frontend():
 def health_check():
     return {"ok": True, "message": "Planner API is healthy and online."}
 
-
 # -------------------------------------------------------------------
-# Local Development (optional)
+# Local Development Entry Point
 # -------------------------------------------------------------------
 if __name__ == "__main__":
     import uvicorn
