@@ -25,9 +25,11 @@ Base = declarative_base()
 
 
 def init_db():
-    """Initialize all tables — call this at startup if needed."""
-    from app import models  # ✅ FIXED: absolute import
-    Base.metadata.create_all(bind=engine)
+    from . import models
+    try:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+    except Exception as e:
+        print(f"⚠️ Skipped DB creation: {e}")
 
 
 # Dependency injection for FastAPI routes
