@@ -3,19 +3,24 @@ from fastapi import APIRouter, Depends, HTTPException, Response, Query
 from sqlalchemy.orm import Session
 from typing import List
 
-from ..database import get_db
+# ✅ FIXED IMPORTS
+from app.database import get_db
 from app import models
-from ..schemas import PlanRequest, PlanResponse, SavePlanRequest, PlanListItem
-from ..auth import get_current_user
-from ..planner import build_schedule
-from ..utils import plan_to_ics, plan_to_pdf
+from app.schemas import PlanRequest, PlanResponse, SavePlanRequest, PlanListItem
+from app.auth import get_current_user
+from app.planner import build_schedule
+from app.utils import plan_to_ics, plan_to_pdf
 
-router = APIRouter(tags=["plans"])
+router = APIRouter(prefix="/api", tags=["Plans"])
+
+# ------------------------ GENERATE PLAN ------------------------
 
 @router.post("/plan", response_model=PlanResponse)
 def generate_plan(req: PlanRequest, current=Depends(get_current_user)):
+    """Generate a new study plan dynamically using build_schedule()."""
     if req.exam_date <= req.start_date:
         raise HTTPException(status_code=400, detail="exam_date must be after start_date.")
+    
     plan = build_schedule(
         start_date=req.start_date,
         exam_date=req.exam_date,
@@ -26,45 +31,104 @@ def generate_plan(req: PlanRequest, current=Depends(get_current_user)):
     )
     return plan
 
+
+# ------------------------ SAVE PLAN ------------------------
+
 @router.post("/plans/save", response_model=PlanListItem)
 def save_plan(payload: SavePlanRequest, db: Session = Depends(get_db), current=Depends(get_current_user)):
+    """Save a generated plan for the current user."""
     p = models.Plan(user_id=current.id, name=payload.name, data_json=payload.data)
-    db.add(p); db.commit(); db.refresh(p)
-    # create empty progress row if not exists
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+
+    # create empty progress record if not exists
     if not db.query(models.Progress).filter(models.Progress.plan_id == p.id).first():
         pr = models.Progress(user_id=current.id, plan_id=p.id, progress_json={})
-        db.add(pr); db.commit()
+        db.add(pr)
+        db.commit()
+
     return PlanListItem(id=p.id, name=p.name, created_at=p.created_at.isoformat())
+
+
+# ------------------------ LIST SAVED PLANS ------------------------
 
 @router.get("/plans/list", response_model=List[PlanListItem])
 def list_plans(db: Session = Depends(get_db), current=Depends(get_current_user)):
-    items = db.query(models.Plan).filter(models.Plan.user_id == current.id).order_by(models.Plan.created_at.desc()).all()
-    return [PlanListItem(id=i.id, name=i.name, created_at=i.created_at.isoformat()) for i in items]
+    """List all saved plans for the current user."""
+    items = (
+        db.query(models.Plan)
+        .filter(models.Plan.user_id == current.id)
+        .order_by(models.Plan.created_at.desc())
+        .all()
+    )
+    return [
+        PlanListItem(id=i.id, name=i.name, created_at=i.created_at.isoformat())
+        for i in items
+    ]
+
+
+# ------------------------ GET SPECIFIC PLAN ------------------------
 
 @router.get("/plans/get/{plan_id}", response_model=PlanResponse)
 def get_plan(plan_id: int, db: Session = Depends(get_db), current=Depends(get_current_user)):
-    plan = db.query(models.Plan).filter(models.Plan.id == plan_id, models.Plan.user_id == current.id).first()
+    """Retrieve a saved plan by its ID."""
+    plan = (
+        db.query(models.Plan)
+        .filter(models.Plan.id == plan_id, models.Plan.user_id == current.id)
+        .first()
+    )
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
     return plan.data_json
 
+
+# ------------------------ DELETE PLAN ------------------------
+
 @router.delete("/plans/delete/{plan_id}")
 def delete_plan(plan_id: int, db: Session = Depends(get_db), current=Depends(get_current_user)):
-    plan = db.query(models.Plan).filter(models.Plan.id == plan_id, models.Plan.user_id == current.id).first()
+    """Delete a saved plan by its ID."""
+    plan = (
+        db.query(models.Plan)
+        .filter(models.Plan.id == plan_id, models.Plan.user_id == current.id)
+        .first()
+    )
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
-    db.delete(plan); db.commit()
+    db.delete(plan)
+    db.commit()
     return {"deleted": True}
 
+
+# ------------------------ DOWNLOAD PLAN (ICS/PDF) ------------------------
+
 @router.get("/plans/download/{plan_id}")
-def download_plan(plan_id: int, type: str = Query("ics", regex="^(ics|pdf)$"), db: Session = Depends(get_db), current=Depends(get_current_user)):
-    plan = db.query(models.Plan).filter(models.Plan.id == plan_id, models.Plan.user_id == current.id).first()
+def download_plan(
+    plan_id: int,
+    type: str = Query("ics", pattern="^(ics|pdf)$"),
+    db: Session = Depends(get_db),
+    current=Depends(get_current_user)
+):
+    """Download a saved plan as ICS (Google Calendar) or PDF."""
+    plan = (
+        db.query(models.Plan)
+        .filter(models.Plan.id == plan_id, models.Plan.user_id == current.id)
+        .first()
+    )
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
+
     if type == "ics":
         content = plan_to_ics(plan.data_json)
-        return Response(content, media_type="text/calendar", headers={"Content-Disposition": f'attachment; filename="NEETSS_Plan_{plan_id}.ics"'})
+        return Response(
+            content,
+            media_type="text/calendar",
+            headers={"Content-Disposition": f'attachment; filename="NEETSS_Plan_{plan_id}.ics"'}
+        )
     else:
         content = plan_to_pdf(plan.data_json)
-        return Response(content, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="NEETSS_Plan_{plan_id}.pdf"'})
-
+        return Response(
+            content,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="NEETSS_Plan_{plan_id}.pdf"'}
+        )
