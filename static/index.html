@@ -178,6 +178,26 @@
       font-size: 0.85rem;
       color: var(--muted);
     }
+
+    .pagination {
+      text-align: center;
+      margin-top: 1.5rem;
+    }
+
+    .pagination button {
+      margin: 0 8px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 14px;
+      cursor: pointer;
+    }
+
+    .pagination button[disabled] {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -209,7 +229,7 @@
 
   <hr class="section">
   <section>
-    <h2>🧭 Daily Plan (First 14 Days)</h2>
+    <h2>🧭 Daily Plan</h2>
     <div id="days" class="grid"></div>
   </section>
 
@@ -218,6 +238,10 @@
   </footer>
 
   <script>
+    let currentPage = 1;
+    const daysPerPage = 14;
+    let allSchedule = [];
+
     async function makePlan() {
       const start = document.getElementById('start').value;
       const exam = document.getElementById('exam').value;
@@ -236,11 +260,16 @@
         alert('Error generating plan');
         return;
       }
+
       const data = await res.json();
-      render(data);
+      allSchedule = data.schedule;
+      currentPage = 1;
+      renderSummary(data);
+      renderWeeks(data);
+      renderDaysPage();
     }
 
-    function render(data) {
+    function renderSummary(data) {
       const s = document.getElementById('summary');
       s.innerHTML = `
         <h2>📘 Plan Summary</h2>
@@ -253,7 +282,9 @@
         </div>
         <p class="muted">Mocks scheduled on days: ${data.meta.mock_days_indexed.join(', ')}</p>
       `;
+    }
 
+    function renderWeeks(data) {
       const weeks = document.getElementById('weeks');
       weeks.innerHTML = '';
       data.weekly_summaries.forEach(w => {
@@ -269,24 +300,70 @@
         `;
         weeks.appendChild(el);
       });
+    }
 
-      const days = document.getElementById('days');
-      days.innerHTML = '';
-      data.schedule.slice(0, 14).forEach(d => {
+    function renderDaysPage() {
+      const daysContainer = document.getElementById('days');
+      daysContainer.innerHTML = '';
+
+      const startIdx = (currentPage - 1) * daysPerPage;
+      const endIdx = Math.min(startIdx + daysPerPage, allSchedule.length);
+      const currentDays = allSchedule.slice(startIdx, endIdx);
+
+      currentDays.forEach(d => {
         const el = document.createElement('div');
         el.className = 'card';
         const phaseColor = d.phase === 'initial70' ? 'initial70' :
                            d.phase === 'middle' ? 'middle' : 'revision';
-        el.innerHTML = `
-          <h3>${d.date} ${d.is_mock_day ? '<span class="mockday">— MOCK DAY</span>' : ''}</h3>
-          <span class="phase-tag ${phaseColor}">${d.phase.toUpperCase()}</span>
-          <p><b>Theory:</b> ${d.theory.topic} (${d.theory.minutes} min)</p>
-          <p><b>MCQ:</b> ${d.mcq.topic} (${d.mcq.minutes} min, target ≈ ${d.mcq.target_questions})</p>
-          <p><b>Recall:</b> ${d.recall.due_topics.length ? d.recall.due_topics.join(', ') : '—'} (${d.recall.minutes} min)</p>
-          ${d.mock ? `<p><b>Mock:</b> ${d.mock.minutes} min + Analysis ${d.mock.analysis_minutes} min</p>` : ''}
-        `;
-        days.appendChild(el);
+
+        if (d.is_mock_day) {
+          el.innerHTML = `
+            <h3>${d.date} <span class="mockday">— MOCK DAY</span></h3>
+            <span class="phase-tag ${phaseColor}">${d.phase.toUpperCase()}</span>
+            <p><b>Mock Exam:</b> ${d.mock.minutes} min + <b>Analysis:</b> ${d.mock.analysis_minutes} min</p>
+            <p><b>Recall:</b> ${d.recall.due_topics.length ? d.recall.due_topics.join(', ') : '—'} (${d.recall.minutes} min)</p>
+            <p class="muted">No Theory or MCQs today — Focus on analysis and spaced recall.</p>
+          `;
+        } else {
+          el.innerHTML = `
+            <h3>${d.date}</h3>
+            <span class="phase-tag ${phaseColor}">${d.phase.toUpperCase()}</span>
+            <p><b>Theory:</b> ${d.theory.topic} (${d.theory.minutes} min)</p>
+            <p><b>MCQ:</b> ${d.mcq.topic} (${d.mcq.minutes} min, target ≈ ${d.mcq.target_questions})</p>
+            <p><b>Recall:</b> ${d.recall.due_topics.length ? d.recall.due_topics.join(', ') : '—'} (${d.recall.minutes} min)</p>
+          `;
+        }
+
+        daysContainer.appendChild(el);
       });
+
+      // Pagination controls
+      const totalPages = Math.ceil(allSchedule.length / daysPerPage);
+      const pagination = document.createElement('div');
+      pagination.className = 'pagination';
+      pagination.innerHTML = `
+        <button onclick="prevPage()" ${currentPage === 1 ? 'disabled' : ''}>⏮️ Prev</button>
+        <span>Page ${currentPage} of ${totalPages}</span>
+        <button onclick="nextPage()" ${currentPage === totalPages ? 'disabled' : ''}>Next ⏭️</button>
+      `;
+      daysContainer.appendChild(pagination);
+    }
+
+    function nextPage() {
+      const totalPages = Math.ceil(allSchedule.length / daysPerPage);
+      if (currentPage < totalPages) {
+        currentPage++;
+        renderDaysPage();
+        window.scrollTo(0, document.body.scrollHeight / 3);
+      }
+    }
+
+    function prevPage() {
+      if (currentPage > 1) {
+        currentPage--;
+        renderDaysPage();
+        window.scrollTo(0, document.body.scrollHeight / 3);
+      }
     }
   </script>
 </body>
