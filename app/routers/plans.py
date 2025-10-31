@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends, HTTPException, Response, Query
 from sqlalchemy.orm import Session
 from typing import List
 
-# ✅ FIXED IMPORTS
 from app.database import get_db
 from app import models
 from app.schemas import PlanRequest, PlanResponse, SavePlanRequest, PlanListItem
@@ -20,7 +19,6 @@ def generate_plan(req: PlanRequest, current=Depends(get_current_user)):
     """Generate a new study plan dynamically using build_schedule()."""
     if req.exam_date <= req.start_date:
         raise HTTPException(status_code=400, detail="exam_date must be after start_date.")
-        print("📩 Incoming payload →", payload.dict())
 
     plan = build_schedule(
         start_date=req.start_date,
@@ -30,6 +28,69 @@ def generate_plan(req: PlanRequest, current=Depends(get_current_user)):
         avg_mcq_minutes=req.avg_minutes_per_mcq,
         plan_type=req.plan_type,
     )
+
+    # ---------------- FILTER PLAN CONTENT BY TYPE ---------------- #
+    plan_type = (req.plan_type or "full").lower()
+
+    if plan_type != "full":
+        schedule = plan.get("schedule", [])
+        filtered_schedule = []
+
+        for day in schedule:
+            day_copy = day.copy()
+
+            # Theory Only
+            if plan_type == "theory":
+                day_copy["mcq"] = None
+                day_copy["recall"] = None
+                if not day_copy.get("is_mock_day"):
+                    day_copy["mock"] = None
+
+            # MCQ Only
+            elif plan_type == "mcq":
+                day_copy["theory"] = None
+                day_copy["recall"] = None
+                if not day_copy.get("is_mock_day"):
+                    day_copy["mock"] = None
+
+            # Revision Only
+            elif plan_type == "revision":
+                day_copy["theory"] = None
+                day_copy["mcq"] = None
+                if not day_copy.get("is_mock_day"):
+                    day_copy["mock"] = None
+
+            # Mock Only → keep only mock days
+            elif plan_type == "mock":
+                if not day_copy.get("is_mock_day"):
+                    continue
+                day_copy["theory"] = None
+                day_copy["mcq"] = None
+                day_copy["recall"] = None
+
+            filtered_schedule.append(day_copy)
+
+        plan["schedule"] = filtered_schedule
+
+        # Adjust weekly summaries
+        weekly_summaries = plan.get("weekly_summaries", [])
+        for w in weekly_summaries:
+            targets = w.get("weekly_targets", {})
+            if plan_type == "theory":
+                targets["approx_mcqs"] = 0
+                targets["recall_min"] = 0
+            elif plan_type == "mcq":
+                targets["theory_min"] = 0
+                targets["recall_min"] = 0
+            elif plan_type == "revision":
+                targets["theory_min"] = 0
+                targets["approx_mcqs"] = 0
+            elif plan_type == "mock":
+                targets["theory_min"] = 0
+                targets["approx_mcqs"] = 0
+                targets["recall_min"] = 0
+        plan["weekly_summaries"] = weekly_summaries
+
     return plan
 
 
@@ -43,7 +104,6 @@ def save_plan(payload: SavePlanRequest, db: Session = Depends(get_db), current=D
     db.commit()
     db.refresh(p)
 
-    # create empty progress record if not exists
     if not db.query(models.Progress).filter(models.Progress.plan_id == p.id).first():
         pr = models.Progress(user_id=current.id, plan_id=p.id, progress_json={})
         db.add(pr)
