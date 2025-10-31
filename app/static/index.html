@@ -220,7 +220,7 @@
       exam_date: exam.value,
       hours_per_day: parseFloat(hours.value),
       mocks: parseInt(mocks.value),
-      avg_mcq_minutes: 2.5,
+      avg_minutes_per_mcq: 2.5,
       plan_type: planType.value
     };
     const res = await fetch(`${API}/plan`, {
