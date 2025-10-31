@@ -4,11 +4,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
 
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    print("❌ Validation Error:", exc.errors())
-    return JSONResponse(status_code=400, content={"detail": exc.errors()})
-
 # -------------------------------------------------------------------
 # Initialize FastAPI App
 # -------------------------------------------------------------------
@@ -17,6 +12,14 @@ app = FastAPI(
     version="2.0.0",
     description="Backend for NEET SS Surgical Group Study Planner with personalization, saved plans, and user authentication."
 )
+
+# -------------------------------------------------------------------
+# Global Validation Error Handler
+# -------------------------------------------------------------------
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    print("❌ Validation Error:", exc.errors())
+    return JSONResponse(status_code=400, content={"detail": exc.errors()})
 
 # -------------------------------------------------------------------
 # CORS Middleware
