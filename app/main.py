@@ -4,6 +4,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    print("❌ Validation Error:", exc.errors())
+    return JSONResponse(status_code=400, content={"detail": exc.errors()})
+
 # -------------------------------------------------------------------
 # Initialize FastAPI App
 # -------------------------------------------------------------------
