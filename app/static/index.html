@@ -153,159 +153,175 @@
   </section>
 
   <script>
-  const API = 'https://neetss-planner-735b64816561.herokuapp.com/api';
-  let token = localStorage.getItem('token');
-  let currentPlan = null;
+const API = 'https://neetss-planner-735b64816561.herokuapp.com/api';
+let token = localStorage.getItem('token');
+let currentPlan = null;
+let currentWeekIndex = 0;
+let currentDayIndex = 0;
 
-  // --- Auth UI ---
-  function showLogin() {
-    document.getElementById('registerArea').style.display = 'none';
-    document.getElementById('loginArea').style.display = 'block';
+// Load user
+async function loadUser() {
+  if (!token) { showLogin(); return; }
+  const res = await fetch(`${API}/me`, { headers: {Authorization: `Bearer ${token}`}});
+  if (!res.ok) { showLogin(); return; }
+  const user = await res.json();
+  document.getElementById('authArea').style.display = 'none';
+  document.getElementById('plannerArea').style.display = 'block';
+  document.getElementById('welcomeMsg').textContent = `👋 Welcome, Dr. ${user.name}`;
+  loadSavedPlans();
+}
+
+// Fetch saved plans
+async function loadSavedPlans() {
+  const res = await fetch(`${API}/plans`, { headers: {Authorization: `Bearer ${token}`}});
+  const plans = await res.json();
+  const container = document.getElementById('savedPlans');
+  if (!plans.length) {
+    container.innerHTML = "<p class='muted'>No saved plans yet.</p>";
+    return;
   }
-  function showRegister() {
-    document.getElementById('loginArea').style.display = 'none';
-    document.getElementById('registerArea').style.display = 'block';
-  }
-  function logout() {
-    localStorage.removeItem('token');
-    location.reload();
-  }
+  container.innerHTML = plans.map(p => `
+    <div class="plan-item">
+      <div>
+        <b>${p.name}</b><br>
+        <small>${new Date(p.created_at).toLocaleDateString()}</small>
+      </div>
+      <div>
+        <button onclick="openPlan(${p.id})">Open</button>
+        <button onclick="downloadPlan(${p.id}, 'pdf')">PDF</button>
+        <button onclick="deletePlan(${p.id})" style="background:#e74c3c;">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
 
-  // --- Auth Logic ---
-  async function login(email, password) {
-    const res = await fetch(`${API}/login`, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({email, password})
-    });
-    if (!res.ok) return alert('Invalid credentials');
-    const data = await res.json();
-    token = data.access_token;
-    localStorage.setItem('token', token);
-    loadUser();
-  }
+// Open plan
+async function openPlan(id) {
+  const res = await fetch(`${API}/plans/${id}`, { headers: {Authorization: `Bearer ${token}`}});
+  const data = await res.json();
+  currentPlan = data;
+  currentWeekIndex = 0;
+  currentDayIndex = 0;
+  renderPlanTabs();
+  renderWeeklyView();
+}
 
-  async function register(name, email, password, goal) {
-    const res = await fetch(`${API}/register`, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({name, email, password, goal})
-    });
-    if (res.ok) { alert('Registered! Now login.'); showLogin(); }
-    else alert('Error registering user');
-  }
+// Tab toggle
+function renderPlanTabs() {
+  document.getElementById('planOutput').innerHTML = `
+    <div class="tab-header">
+      <button id="tab-weekly" class="active" onclick="renderWeeklyView()">📆 Weekly</button>
+      <button id="tab-daily" onclick="renderDailyView()">🗓 Daily</button>
+    </div>
+    <div id="tab-content" class="plan-content"></div>
+  `;
+}
 
-  async function loadUser() {
-    if (!token) { showLogin(); return; }
-    const res = await fetch(`${API}/me`, { headers: {Authorization: `Bearer ${token}`}});
-    if (!res.ok) { showLogin(); return; }
-    const user = await res.json();
-    document.getElementById('authArea').style.display = 'none';
-    document.getElementById('plannerArea').style.display = 'block';
-    document.getElementById('welcomeMsg').textContent = `👋 Welcome, Dr. ${user.name} (${user.goal || 'General Surgery'})`;
-  }
+// --- WEEKLY VIEW ---
+function renderWeeklyView() {
+  const data = currentPlan;
+  const weeks = data.weekly_summaries || [];
+  const week = weeks[currentWeekIndex];
+  if (!week) return;
 
-  // --- Form Handlers ---
-  document.getElementById('loginForm').onsubmit = (e) => {
-    e.preventDefault();
-    login(loginEmail.value, loginPassword.value);
-  };
-  document.getElementById('registerForm').onsubmit = (e) => {
-    e.preventDefault();
-    register(regName.value, regEmail.value, regPassword.value, regGoal.value);
-  };
+  const phaseColor = week.phase.includes("Foundation") ? "#2ecc71"
+                    : week.phase.includes("Consolidation") ? "#3498db"
+                    : "#f39c12";
 
-  // --- Plan Generation ---
-  async function makePlan() {
-    const payload = {
-      start_date: start.value,
-      exam_date: exam.value,
-      hours_per_day: parseFloat(hours.value),
-      mocks: parseInt(mocks.value),
-      avg_minutes_per_mcq: parseFloat(document.getElementById('avg_mcq').value),
-      plan_type: planType.value
-    };
-    const res = await fetch(`${API}/plan`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) return alert('Error generating plan');
-    const data = await res.json();
-    currentPlan = data;
-    showPlan(data);
-  }
+  document.getElementById('tab-weekly').classList.add('active');
+  document.getElementById('tab-daily').classList.remove('active');
 
-  // --- Plan Display ---
-  function showPlan(data) {
-    document.getElementById('planOutput').style.display = 'block';
+  const content = `
+    <div style="border-left:5px solid ${phaseColor}; padding-left:10px;">
+      <h3>${week.phase} — Week ${week.week}</h3>
+      <p><b>${week.start_date}</b> → <b>${week.end_date}</b></p>
+      <p><em>${week.quote}</em></p>
+      <ul>${week.focus_notes.map(n=>`<li>${n}</li>`).join('')}</ul>
+      <p>🎯 Theory: ${week.weekly_targets.theory_min} min |
+         🧠 MCQs: ${week.weekly_targets.approx_mcqs} |
+         🔁 Recall: ${week.weekly_targets.recall_min} min</p>
+    </div>
+    <div class="pagination">
+      <button onclick="prevWeek()" ${currentWeekIndex===0?'disabled':''}>⬅ Prev</button>
+      <span>Week ${currentWeekIndex+1} / ${weeks.length}</span>
+      <button onclick="nextWeek()" ${currentWeekIndex===weeks.length-1?'disabled':''}>Next ➡</button>
+    </div>
+  `;
+  document.getElementById('tab-content').innerHTML = content;
+}
 
-    const meta = data.meta || {};
-    document.getElementById('summary').innerHTML = `
-      <p><b>Start:</b> ${meta.start_date} &nbsp; <b>Exam:</b> ${meta.exam_date}</p>
-      <p><b>Days:</b> ${meta.days} | <b>Hours/day:</b> ${meta.hours_per_day}</p>
-      ${meta.mock_days_indexed ? `<p><b>Mocks:</b> ${meta.mock_days_indexed.length} planned</p>` : ""}
+function nextWeek(){ currentWeekIndex++; renderWeeklyView(); }
+function prevWeek(){ currentWeekIndex--; renderWeeklyView(); }
+
+// --- DAILY VIEW ---
+function renderDailyView() {
+  const data = currentPlan.schedule || [];
+  const daysPerPage = 7;
+  const start = currentDayIndex * daysPerPage;
+  const end = start + daysPerPage;
+  const pageDays = data.slice(start, end);
+
+  document.getElementById('tab-daily').classList.add('active');
+  document.getElementById('tab-weekly').classList.remove('active');
+
+  let html = `<h3>📅 Daily Schedule (Days ${start+1}-${Math.min(end,data.length)})</h3>`;
+  html += pageDays.map(d=>{
+    const phaseColor = d.phase.includes("Foundation") ? "#2ecc71"
+                      : d.phase.includes("Consolidation") ? "#3498db"
+                      : "#f39c12";
+    const mockInfo = d.is_mock_day ? `
+      <div style="color:#e74c3c;">
+        🧾 Mock Exam — ${d.mock.minutes} min test + ${d.mock.analysis_minutes} min analysis<br>
+        <em>${d.mock.notes}</em>
+      </div>
+    ` : '';
+    return `
+      <div style="border:1px solid #ddd; border-left:5px solid ${phaseColor}; border-radius:6px; margin:10px; padding:8px;">
+        <b>${d.date}</b> — ${d.phase}<br>
+        📖 <b>Theory:</b> ${d.theory.topic} (${d.theory.minutes} min)<br>
+        🧠 <b>MCQ:</b> ${d.mcq.topic} (${d.mcq.target_questions} Qs / ${d.mcq.minutes} min)<br>
+        🔁 <b>Recall:</b> ${d.recall.minutes} min (${d.recall.due_topics.join(', ') || 'None'})<br>
+        ${mockInfo}
+      </div>
     `;
+  }).join('');
 
-    const weeks = data.weekly_summaries || [];
-    document.getElementById('weeks').innerHTML = weeks.map(w => {
-      const phaseColor =
-        w.phase.includes("Foundation") ? "var(--foundation)" :
-        w.phase.includes("Consolidation") ? "var(--consolidation)" :
-        w.phase.includes("Revision") ? "var(--revision)" : "#444";
+  html += `
+    <div class="pagination">
+      <button onclick="prevDays()" ${currentDayIndex===0?'disabled':''}>⬅ Prev</button>
+      <span>Page ${currentDayIndex+1} / ${Math.ceil(data.length/daysPerPage)}</span>
+      <button onclick="nextDays()" ${end>=data.length?'disabled':''}>Next ➡</button>
+    </div>
+  `;
+  document.getElementById('tab-content').innerHTML = html;
+}
 
-      const notes = (w.focus_notes || []).map(n => `<li>${n}</li>`).join('');
-      const targets = w.weekly_targets || {};
-      const mocks = w.mocks ? `<p>🧠 <b>${w.mocks}</b> Mock${w.mocks > 1 ? 's' : ''} this week</p>` : '';
+function nextDays(){ currentDayIndex++; renderDailyView(); }
+function prevDays(){ currentDayIndex--; renderDailyView(); }
 
-      return `
-        <div style="border-left: 6px solid ${phaseColor}; padding-left: 10px; margin-bottom: 1rem;">
-          <h3 style="color:${phaseColor}; margin-bottom:0;">Week ${w.week} — ${w.phase}</h3>
-          <p class="muted">${w.start_date} → ${w.end_date}</p>
-          <p><em>${w.quote}</em></p>
-          ${mocks}
-          ${notes ? `<ul>${notes}</ul>` : ""}
-          <p>
-            🎯 <b>Theory:</b> ${targets.theory_min || 0} min |
-            <b>MCQs:</b> ${targets.approx_mcqs || 0} |
-            <b>Recall:</b> ${targets.recall_min || 0} min
-          </p>
-        </div>
-      `;
-    }).join('');
+// --- Download/Delete/Save Plan ---
+async function downloadPlan(id, type){
+  const res = await fetch(`${API}/plans/download/${id}?type=${type}`, {
+    headers: {Authorization: `Bearer ${token}`}
+  });
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `StudyPlan_${id}.${type}`;
+  a.click();
+}
 
-    document.getElementById('actions').innerHTML = `
-      <button onclick="savePlan()">💾 Save Plan</button>
-      <button onclick="downloadPlan('pdf')">⬇️ PDF</button>
-      <button onclick="downloadPlan('ics')">📅 Calendar</button>
-    `;
-  }
+async function deletePlan(id){
+  if(!confirm('Delete this plan?')) return;
+  const res = await fetch(`${API}/plans/delete/${id}`, {
+    method: 'DELETE',
+    headers: {Authorization: `Bearer ${token}`}
+  });
+  if(res.ok){ alert('Deleted'); loadSavedPlans(); }
+}
 
-  async function savePlan() {
-    const name = prompt('Enter name for this plan:', 'My NEET SS Plan');
-    if (!name) return;
-    const res = await fetch(`${API}/plans/save`, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json', Authorization: `Bearer ${token}`},
-      body: JSON.stringify({name, data: currentPlan})
-    });
-    if (res.ok) alert('✅ Plan saved!');
-    else alert('Error saving plan');
-  }
-
-  async function downloadPlan(type) {
-    const res = await fetch(`${API}/plans/download/1?type=${type}`, {
-      headers: {Authorization: `Bearer ${token}`}
-    });
-    const blob = await res.blob();
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `NEETSS_StudyPlan.${type}`;
-    link.click();
-  }
-
-  // INIT
-  loadUser();
-  </script>
+// INIT
+loadUser();
+</script>
 </body>
 </html>
