@@ -2,33 +2,51 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Sushruta LGS — AI NEET SS Study Planner</title>
+<title>Cortex Surgery AI Planner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="icon" type="image/x-icon" href="/static/favicon.ico"/>
 
 <style>
-  :root {
-    --primary:#0b5fe0;
+  :root{
+    /* Palette */
+    --primary:#0b5fe0;         /* Blue (header gradient) */
+    --primary-2:#1d4ed8;
     --secondary:#0a2a6c;
-    --accent:#10b981;
+    --accent:#10b981;          /* Teal accent for check/accents */
     --danger:#dc2626;
+
+    /* Surfaces */
     --bg:linear-gradient(135deg,#f8fafc,#eef2f3);
-    --card-bg:#ffffffcc;
-    --elev:0 10px 28px rgba(0,0,0,.08);
+    --card-bg:#ffffffcc;       /* glassy white */
+    --elev:0 12px 30px rgba(0,0,0,.08);
     --text:#0f172a;
     --muted:#475569;
     --border:#dbe3ef;
     --chip:#eef2ff;
 
-    --ring:#d1d5db;         /* donut base ring */
-    --ring-thick:12;        /* donut thickness */
-    --radius:52;            /* donut radius */
+    /* Donut */
+    --ring:#d1d5db;
+    --ring-thick:14;
+    --radius:56;
+
+    /* Scales (≈ 2.5x while responsive) */
+    --fs-base:clamp(18px, 2.2vw, 22px);
+    --fs-sm:clamp(12px, 1.35vw, 14px);
+    --fs-md:clamp(15px, 1.6vw, 18px);
+    --fs-lg:clamp(18px, 2.1vw, 26px);
+    --fs-xl:clamp(22px, 3vw, 36px);
+    --fs-xxl:clamp(26px, 4vw, 48px);
+    --radius-card:20px;
+    --blur:12px;
   }
-  /* Dark mode vars */
-  :root.dark {
-    --primary:#7aa2ff;
+  /* Dark */
+  :root.dark{
+    --primary:#3b82f6;
+    --primary-2:#1e40af;
     --secondary:#0b1220;
     --accent:#22d3ee;
     --danger:#f87171;
+
     --bg:linear-gradient(135deg,#0b1220,#0f172a);
     --card-bg:#0f172acc;
     --elev:0 10px 28px rgba(0,0,0,.45);
@@ -48,174 +66,192 @@
     color:var(--text);
     background:var(--bg);
     overflow-x:hidden;
-    font-size:17px;
+    font-size:var(--fs-base);
   }
 
-  /* Header */
+  /* ===== HEADER (Hero, full-width) ===== */
   header{
-    background:linear-gradient(135deg,var(--primary),var(--secondary));
+    background:linear-gradient(135deg,var(--primary),var(--primary-2));
     color:#fff;
-    padding:16px clamp(14px,3vw,24px);
     position:sticky;top:0;z-index:20;
     box-shadow:var(--elev);
-    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:clamp(10px,1.8vw,16px) clamp(12px,3vw,28px);
   }
-  .brand{display:flex;align-items:center;gap:12px;}
-  .brand img{height:44px;border-radius:10px;opacity:.97;box-shadow:0 4px 12px rgba(0,0,0,.15)}
-  .brand h1{margin:0;font-size:clamp(18px,3.1vw,24px);font-weight:800;letter-spacing:.2px}
-  .subtitle{opacity:.92;font-size:clamp(12px,2.1vw,14px);margin:0}
-
-  .header-actions{display:flex;gap:10px;align-items:center}
+  .hero{
+    max-width:1400px;margin:0 auto;
+    display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:clamp(8px,1.6vw,18px);
+  }
+  .hero .logo{
+    display:flex;align-items:center;gap:clamp(8px,1.2vw,14px);
+  }
+  .hero .logo img{
+    height:clamp(40px, 5.2vw, 64px);
+    border-radius:12px;opacity:.98;
+    box-shadow:0 6px 18px rgba(0,0,0,.22)
+  }
+  .hero-center{
+    text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .hero-title{
+    margin:0;
+    font-weight:900;
+    letter-spacing:.3px;
+    line-height:1.1;
+    font-size:var(--fs-xxl); /* doubled hero size */
+    text-shadow:0 2px 18px rgba(0,0,0,.18);
+  }
+  .subtitle{
+    margin:.2em 0 0 0;
+    opacity:.95;
+    font-size:var(--fs-md);
+    font-weight:600;
+  }
+  .header-actions{display:flex;gap:clamp(8px,1.2vw,12px);align-items:center;justify-content:flex-end}
   .toggle{
-    background:transparent;border:1px solid #ffffff55;color:#fff;border-radius:12px;
-    padding:10px 14px;cursor:pointer;font-size:14px;transition:.2s, transform .08s;
-    backdrop-filter: blur(4px);
+    background:transparent;border:1px solid #ffffff66;color:#fff;border-radius:14px;
+    padding:clamp(8px,1.2vw,12px) clamp(10px,1.6vw,16px);
+    cursor:pointer;font-size:var(--fs-sm);font-weight:800;transition:.2s, transform .08s;
+    backdrop-filter: blur(6px);
   }
-  .toggle:hover{background:#ffffff1f}
+  .toggle:hover{background:#ffffff22}
   .toggle:active{transform:scale(.98)}
 
-  /* Shell */
-  .shell{max-width:1200px;margin:22px auto 72px;padding:0 clamp(10px,3.5vw,18px);}
+  /* ===== SHELL / CARDS ===== */
+  .shell{max-width:1400px;margin:clamp(14px,2vw,22px) auto clamp(90px,8vw,120px);padding:0 clamp(12px,3.2vw,28px);}
   .card{
     background:var(--card-bg);
     border:1px solid var(--border);
-    border-radius:18px;
+    border-radius:var(--radius-card);
     box-shadow:var(--elev);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(var(--blur));
     overflow:hidden;
   }
 
-  /* Auth gate */
-  #gate{
-    max-width:680px;margin:28px auto;padding:24px clamp(16px,4vw,28px);
-  }
-  .gate-title{margin:0 0 6px;font-size:28px;font-weight:800;letter-spacing:.1px}
-  .gate-sub{margin:0 0 18px;color:var(--muted)}
-  .row{display:flex;gap:12px;flex-wrap:wrap}
-  .input{position:relative;flex:1 1 260px;min-width:220px}
+  /* ===== AUTH ===== */
+  #gate{max-width:900px;margin:clamp(18px,3vw,28px) auto;padding:clamp(18px,3vw,28px)}
+  .gate-title{margin:0 0 6px;font-size:var(--fs-xl);font-weight:900;letter-spacing:.2px}
+  .gate-sub{margin:0 0 18px;color:var(--muted);font-size:var(--fs-md)}
+  .row{display:flex;gap:clamp(10px,1.6vw,14px);flex-wrap:wrap}
+  .input{position:relative;flex:1 1 320px;min-width:260px}
   .input input{
-    width:100%;padding:14px 12px;border:1px solid var(--border);border-radius:14px;background:transparent;color:var(--text);
-    font-size:16px;outline:none;transition:.15s box-shadow,.15s border-color;
+    width:100%;padding:clamp(12px,1.6vw,16px);border:1px solid var(--border);border-radius:14px;background:transparent;color:var(--text);
+    font-size:var(--fs-md);outline:none;transition:.15s box-shadow,.15s border-color;
   }
-  .input input:focus{box-shadow:0 0 0 4px rgba(37,99,235,.12);border-color:#93c5fd}
+  .input input:focus{box-shadow:0 0 0 6px rgba(37,99,235,.14);border-color:#93c5fd}
   .input label{
-    position:absolute;left:12px;top:-8px;padding:0 6px;background:var(--card-bg);
-    color:#6b7280;font-size:12px;border-radius:6px;
+    position:absolute;left:12px;top:-10px;padding:0 6px;background:var(--card-bg);
+    color:#6b7280;font-size:var(--fs-sm);border-radius:6px;
   }
-  .btn{border:none;border-radius:14px;padding:12px 16px;font-weight:700;cursor:pointer;font-size:15px;transition:.18s, transform .08s}
+  .btn{border:none;border-radius:14px;padding:clamp(10px,1.6vw,14px) clamp(14px,2vw,18px);font-weight:900;cursor:pointer;font-size:var(--fs-md);transition:.18s, transform .08s}
   .btn:active{transform:translateY(1px) scale(.99)}
-  .btn.primary{
-    background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;box-shadow:0 10px 22px rgba(37,99,235,.28)
-  }
+  .btn.primary{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;box-shadow:0 10px 22px rgba(37,99,235,.28)}
   .btn.primary:hover{filter:brightness(1.08)}
   .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
-  .muted{color:var(--muted)}
-  .gate-footer{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+  .muted{color:var(--muted);font-size:var(--fs-sm)}
 
-  /* App (after login) */
+  /* ===== APP ===== */
   #app{display:none}
   .tabs{
-    margin-top:8px;
-    display:flex;gap:10px;flex-wrap:wrap;border-bottom:1px dashed var(--border);padding:10px clamp(10px,3vw,16px);
+    margin-top:8px;display:flex;gap:clamp(8px,1.2vw,12px);flex-wrap:wrap;border-bottom:1px dashed var(--border);
+    padding:clamp(10px,1.4vw,14px) clamp(12px,2vw,18px);
     background:linear-gradient(180deg,transparent,rgba(0,0,0,.02));
   }
   .tab{
     background:var(--chip);color:var(--text);border:1px solid var(--border);
-    padding:10px 14px;border-radius:12px;cursor:pointer;font-weight:700;font-size:14px;transition:.18s, transform .06s;
+    padding:clamp(10px,1.6vw,14px) clamp(12px,2vw,16px);border-radius:12px;cursor:pointer;font-weight:900;font-size:var(--fs-sm);transition:.18s, transform .06s;
   }
   .tab:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.06)}
   .tab.active{background:var(--accent);border-color:transparent;color:#081016}
-  .content{margin-top:0;padding:16px clamp(14px,3.5vw,22px) 24px}
+  .content{margin-top:0;padding:clamp(12px,1.8vw,16px) clamp(14px,3.2vw,24px) clamp(24px,4vw,32px)}
 
-  /* Plan Builder */
-  .builder-grid{display:grid;grid-template-columns:repeat(5, minmax(170px,1fr));gap:14px}
-  @media (max-width:1100px){.builder-grid{grid-template-columns:repeat(3, minmax(170px,1fr))}}
-  @media (max-width:720px){.builder-grid{grid-template-columns:repeat(2, minmax(150px,1fr))}}
-  @media (max-width:460px){.builder-grid{grid-template-columns:1fr}}
-  .field .label{font-size:13px;color:var(--muted);margin-bottom:6px}
+  /* Builder grid – scaled responsive */
+  .builder-grid{display:grid;grid-template-columns:repeat(5, minmax(220px,1fr));gap:clamp(10px,1.6vw,16px)}
+  @media (max-width:1200px){.builder-grid{grid-template-columns:repeat(3, minmax(220px,1fr))}}
+  @media (max-width:820px){.builder-grid{grid-template-columns:repeat(2, minmax(200px,1fr))}}
+  @media (max-width:520px){.builder-grid{grid-template-columns:1fr}}
+  .field .label{font-size:var(--fs-sm);color:var(--muted);margin-bottom:6px;font-weight:700}
   .field input{
-    width:100%;padding:12px 12px;border:1px solid var(--border);border-radius:12px;background:transparent;color:var(--text);font-size:16px;
+    width:100%;padding:clamp(10px,1.4vw,14px);border:1px solid var(--border);border-radius:12px;background:transparent;color:var(--text);font-size:var(--fs-md);
     transition:.15s box-shadow,.15s border-color;
   }
-  .field input:focus{box-shadow:0 0 0 4px rgba(37,99,235,.12);border-color:#93c5fd}
+  .field input:focus{box-shadow:0 0 0 6px rgba(37,99,235,.14);border-color:#93c5fd}
+  .actions-row{display:flex;flex-wrap:wrap;gap:clamp(8px,1.2vw,12px);margin-top:10px}
 
-  .actions-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
-
-  /* Summary ribbon */
   .summary{
-    background:#e8f1ff22;border-left:6px solid var(--accent);padding:12px 14px;border-radius:12px;margin:12px 0
+    background:#e8f1ff22;border-left:6px solid var(--accent);padding:clamp(10px,1.4vw,14px) clamp(12px,2vw,16px);
+    border-radius:12px;margin:12px 0;font-size:var(--fs-md)
   }
 
-  /* Accordion / day list */
   details{border:1px solid var(--border);border-radius:14px;margin:10px 0;background:transparent;transition:border-color .2s}
   details:hover{border-color:#a5b4fc}
   summary{
-    list-style:none;padding:14px 16px;cursor:pointer;font-weight:800;display:flex;justify-content:space-between;align-items:center;gap:10px;
+    list-style:none;padding:clamp(12px,1.6vw,16px) clamp(12px,2vw,16px);cursor:pointer;font-weight:900;display:flex;justify-content:space-between;align-items:center;gap:10px;
+    font-size:var(--fs-md)
   }
   summary::-webkit-details-marker{display:none}
-  .pill{font-size:12px;border:1px solid var(--border);padding:6px 10px;border-radius:999px;color:var(--muted);background:var(--chip);font-weight:700}
-  .day{padding:12px 14px;border-top:1px dashed var(--border);display:grid;gap:8px}
+  .pill{font-size:var(--fs-sm);border:1px solid var(--border);padding:6px 10px;border-radius:999px;color:var(--muted);background:var(--chip);font-weight:800}
+  .day{padding:clamp(10px,1.6vw,14px);border-top:1px dashed var(--border);display:grid;gap:8px;font-size:var(--fs-md)}
   .phase-foundation{border-left:6px solid #22c55e}
   .phase-consolidation{border-left:6px solid #3b82f6}
   .phase-revision{border-left:6px solid #f59e0b}
   .row-split{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
-  .checks{display:flex;gap:10px;flex-wrap:wrap}
+  .checks{display:flex;gap:clamp(8px,1.2vw,12px);flex-wrap:wrap}
 
-  /* Enhanced checkboxes */
+  /* Enhanced checkboxes (bigger) */
   .chk{
-    display:inline-flex;gap:8px;align-items:center;border:1px solid var(--border);
-    padding:8px 10px;border-radius:12px;background:var(--chip);font-size:14px;cursor:pointer;font-weight:700;
+    display:inline-flex;gap:clamp(8px,1.2vw,10px);align-items:center;border:1px solid var(--border);
+    padding:clamp(8px,1.4vw,10px) clamp(10px,1.8vw,12px);border-radius:14px;background:var(--chip);font-size:var(--fs-sm);cursor:pointer;font-weight:900;
     transition:.18s, transform .06s;
   }
   .chk:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(0,0,0,.07)}
   .chk input{
-    appearance:none;width:22px;height:22px;border:2px solid #94a3b8;border-radius:7px;display:grid;place-items:center;
-    transition:.18s background-color,.18s border-color,.18s transform;
-    background:#fff;
+    appearance:none;width:clamp(22px,2.6vw,28px);height:clamp(22px,2.6vw,28px);border:2px solid #94a3b8;border-radius:8px;display:grid;place-items:center;
+    transition:.18s background-color,.18s border-color,.18s transform;background:#fff;
   }
   :root.dark .chk input{background:#0b1220}
   .chk input:checked{
-    background:var(--accent);border-color:transparent;box-shadow:0 0 0 4px rgba(16,185,129,.18) inset, 0 0 0 3px rgba(16,185,129,.2);
+    background:var(--accent);border-color:transparent;box-shadow:0 0 0 5px rgba(16,185,129,.2) inset, 0 0 0 3px rgba(16,185,129,.25);
   }
-  .chk input:active{transform:scale(.96)}
-
-  .small{font-size:12px;color:var(--muted)}
+  .small{font-size:var(--fs-sm);color:var(--muted)}
   .spacer{height:4px}
 
-  /* Donut charts */
-  .donuts{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-  @media (max-width:900px){.donuts{grid-template-columns:repeat(2,1fr)}}
-  @media (max-width:480px){.donuts{grid-template-columns:1fr}}
-  .donut-card{border:1px solid var(--border);border-radius:16px;padding:16px;text-align:center;transition:.18s}
+  /* Donuts */
+  .donuts{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(12px,2vw,16px)}
+  @media (max-width:1080px){.donuts{grid-template-columns:repeat(2,1fr)}}
+  @media (max-width:560px){.donuts{grid-template-columns:1fr}}
+  .donut-card{border:1px solid var(--border);border-radius:16px;padding:clamp(12px,1.6vw,16px);text-align:center;transition:.18s}
   .donut-card:hover{box-shadow:0 12px 26px rgba(0,0,0,.08)}
-  .donut-wrap{width:132px;height:132px;margin:8px auto;position:relative}
+  .donut-wrap{width:clamp(132px, 18vw, 180px);height:clamp(132px, 18vw, 180px);margin:8px auto;position:relative}
   .donut-wrap svg{transform:rotate(-90deg)}
   .donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;gap:2px}
-  .donut-center .big{font-size:22px}
+  .donut-center .big{font-size:var(--fs-lg)}
   .donut-arc{transition:stroke-dashoffset .6s cubic-bezier(.22,1,.36,1)}
 
   /* Toast */
   #toast{
     position:fixed;bottom:20px;right:20px;z-index:9999;
-    padding:12px 16px;border-radius:12px;color:#fff;background:linear-gradient(135deg,#2563eb,#1d4ed8);
-    box-shadow:0 12px 24px rgba(37,99,235,.35);opacity:0;transform:translateY(16px);transition:.3s
+    padding:12px 16px;border-radius:14px;color:#fff;background:linear-gradient(135deg,#2563eb,#1d4ed8);
+    box-shadow:0 12px 24px rgba(37,99,235,.35);opacity:0;transform:translateY(16px);transition:.3s;font-size:var(--fs-sm)
   }
   #toast.show{opacity:1;transform:translateY(0)}
 </style>
 </head>
 
 <body>
+<!-- ===== HERO HEADER ===== -->
 <header>
-  <div class="brand">
-    <img src="/static/logo.png" alt="Sushruta LGS"/>
-    <div>
-      <h1>Sushruta LGS — AI Study Planner</h1>
+  <div class="hero">
+    <div class="logo">
+      <img src="/static/logo.png" alt="Cortex Surgery AI"/>
+    </div>
+    <div class="hero-center">
+      <h1 class="hero-title">Cortex Surgery AI Planner</h1>
       <p class="subtitle">Rule of 3 • Interleaved Learning • Spaced Recall • Timed Mocks</p>
     </div>
-  </div>
-  <div class="header-actions">
-    <button class="toggle" id="darkToggle" title="Toggle Dark Mode">🌙 Dark</button>
-    <button class="toggle" id="logoutBtn" style="display:none">Logout</button>
+    <div class="header-actions">
+      <button class="toggle" id="darkToggle" title="Toggle Dark Mode">🌙 Dark</button>
+      <button class="toggle" id="logoutBtn" style="display:none">Logout</button>
+    </div>
   </div>
 </header>
 
@@ -343,9 +379,9 @@
 const API = 'https://neetss-planner-735b64816561.herokuapp.com/api';
 let token = localStorage.getItem('token');
 let currentPlan = null;
-let currentPlanId = null; // if opened from saved
+let currentPlanId = null;
 let userName = '';
-let progress = {}; // { [date]: {theory:bool, mcq:bool, recall:bool, mock:bool} }
+let progress = {}; // { [date]: {theory, mcq, recall, mock} }
 let debouncedSaveToServer = null;
 
 const $ = (id)=>document.getElementById(id);
@@ -356,11 +392,7 @@ const toast = (msg)=>{
 
 /* ==================== UTILITIES ==================== */
 function debounce(fn, delay){
-  let t;
-  return (...args)=>{
-    clearTimeout(t);
-    t = setTimeout(()=>fn.apply(this,args), delay);
-  };
+  let t; return (...args)=>{ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), delay); };
 }
 
 /* ----------------------- Dark mode ----------------------- */
@@ -417,9 +449,7 @@ async function afterLogin(){
 
 /* ----------------------- Tabs ---------------------------- */
 const tabButtons = Array.from(document.querySelectorAll('.tab'));
-tabButtons.forEach(btn=>{
-  btn.addEventListener('click', ()=>switchTab(btn.dataset.tab));
-});
+tabButtons.forEach(btn=>btn.addEventListener('click', ()=>switchTab(btn.dataset.tab)));
 function switchTab(name){
   tabButtons.forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
   ['builder','weekly','daily','progress','saved','help'].forEach(p=>{
@@ -463,7 +493,7 @@ $('genBtn').onclick = async ()=>{
   if(!r.ok){ toast('❌ Error generating plan'); return; }
   const d = await r.json();
   currentPlan = d; currentPlanId = null;
-  loadLocalProgress(); // empty fresh mapping for this plan (if exists)
+  loadLocalProgress();
   showSummary();
   $('saveBtn').style.display='inline-block';
   $('continueBtn').style.display='inline-block';
@@ -483,12 +513,12 @@ $('saveBtn').onclick = async ()=>{
   if(!r.ok){ toast('❌ Failed to save plan'); return; }
   toast('💾 Plan saved');
   await loadSavedPlans();
-  // after saving, try to discover id to attach autosave to saved plan
-  try {
+  // discover id of last saved
+  try{
     const plans = await listPlans();
     const latest = plans.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
     if(latest) currentPlanId = latest.id;
-  } catch {}
+  }catch{}
 };
 
 $('continueBtn').onclick = ()=>{
@@ -499,12 +529,9 @@ $('continueBtn').onclick = ()=>{
   requestAnimationFrame(()=>{
     const el = document.querySelector(`[data-day="${date}"]`);
     if(el){
-      // open its <details> and scroll
-      const parent = el.closest('details');
-      if(parent) parent.open = true;
+      const parent = el.closest('details'); if(parent) parent.open = true;
       el.scrollIntoView({behavior:'smooth', block:'center'});
-      el.classList.add('pulse');
-      setTimeout(()=>el.classList.remove('pulse'), 1200);
+      el.classList.add('pulse'); setTimeout(()=>el.classList.remove('pulse'), 1200);
     }
   });
 };
@@ -521,9 +548,9 @@ async function loadSavedPlans(){
     const plans = await listPlans();
     const box = $('savedPlans');
     if(!plans.length){ box.innerHTML = '<p class="muted">No saved plans yet.</p>'; return; }
-    // ⛔️ PDF / ICS download removed per requirement
-    box.innerHTML = '<h3>💾 Saved Plans</h3>' + plans.map(p=>`
-      <div class="row-split" style="border:1px dashed var(--border);padding:10px;border-radius:12px;margin:8px 0">
+    // PDF/ICS removed
+    box.innerHTML = '<h3 style="margin:6px 0 10px 0">💾 Saved Plans</h3>' + plans.map(p=>`
+      <div class="row-split" style="border:1px dashed var(--border);padding:12px;border-radius:14px;margin:8px 0">
         <div><b>${p.name}</b><div class="small">${new Date(p.created_at).toLocaleString()}</div></div>
         <div class="row" style="gap:8px">
           <button class="btn ghost" onclick="openSaved(${p.id})">Open</button>
@@ -538,9 +565,8 @@ async function loadSavedPlans(){
 window.openSaved = async (id)=>{
   const d = await getPlanById(id);
   currentPlan = d; currentPlanId = id;
-  loadLocalProgress(); // load any local progress for this plan
-  // Attempt server-side progress load & merge (server wins)
-  await loadServerProgress();
+  loadLocalProgress();
+  await loadServerProgress(); // server wins where available
   showSummary();
   $('saveBtn').style.display='inline-block';
   $('continueBtn').style.display='inline-block';
@@ -633,9 +659,8 @@ function checkBox(kind, date, isChecked){
 window.onToggle = (date, kind, val)=>{
   if(!progress[date]) progress[date] = {theory:false, mcq:false, recall:false, mock:false};
   progress[date][kind] = val;
-  saveLocalProgress();                 // ✅ immediate local save
-  scheduleAutoSaveToServer();          // ✅ debounced auto-save to server
-  // live-refresh weekly & progress tab so user sees updates
+  saveLocalProgress();         // immediate local save
+  scheduleAutoSaveToServer();  // debounced 1s cloud save
   renderWeekly();
   if(document.querySelector('.tab.active')?.dataset.tab==='progress') renderProgress();
 };
@@ -660,7 +685,6 @@ function getProgressForDate(date){
 }
 
 function aggregateProgress(schedule){
-  // totals across plan, and per-week key "start::end"
   let totals = {theory:0, mcq:0, recall:0, mock:0, denomTheory:0, denomMcq:0, denomRecall:0, denomMock:0};
   let wkAgg = {};
   const weeks = chunk(schedule, 7);
@@ -671,7 +695,6 @@ function aggregateProgress(schedule){
     let w = {theory:0, mcq:0, recall:0, mock:0, totalDays:blk.length};
     blk.forEach(d=>{
       const mark = getProgressForDate(d.date);
-      // per component
       totals.theory += mark.theory ? 1 : 0; totals.denomTheory += 1;
       totals.mcq    += mark.mcq ? 1 : 0;    totals.denomMcq += 1;
       totals.recall += mark.recall ? 1 : 0; totals.denomRecall += 1;
@@ -687,7 +710,6 @@ function aggregateProgress(schedule){
 
   return {totals, wkAgg};
 }
-
 function chunk(arr, size){
   const out=[]; for(let i=0;i<arr.length;i+=size){ out.push(arr.slice(i,i+size)); } return out;
 }
@@ -715,31 +737,32 @@ function renderProgress(){
     donut('Mock',   pMock,   '#ef4444')
   ].join('');
 }
-
 function donut(label, percent, color){
-  const r=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--radius'))||52;
-  const thick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ring-thick'))||12;
+  const r=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--radius'))||56;
+  const thick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ring-thick'))||14;
   const c=2*Math.PI*r, off = c*(1-percent/100);
   return `
   <div class="donut-card">
     <div class="donut-wrap">
-      <svg width="132" height="132">
-        <circle cx="66" cy="66" r="${r}" stroke="url(#ringBaseGradient)" stroke-width="${thick}" fill="none" opacity=".45"></circle>
-        <defs>
-          <linearGradient id="ringBaseGradient" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="${getComputedStyle(document.documentElement).getPropertyValue('--ring').trim()}" />
-            <stop offset="100%" stop-color="#9ca3af" />
-          </linearGradient>
-        </defs>
-        <circle class="donut-arc" cx="66" cy="66" r="${r}" stroke="${color}" stroke-width="${thick}" fill="none"
-                stroke-dasharray="${c}" stroke-dashoffset="${off}" stroke-linecap="round"></circle>
+      <svg width="100%" height="100%" viewBox="0 0 ${r*2+20} ${r*2+20}" preserveAspectRatio="xMidYMid meet">
+        <g transform="translate(10,10)">
+          <circle cx="${r}" cy="${r}" r="${r}" stroke="url(#ringBaseGradient)" stroke-width="${thick}" fill="none" opacity=".45"></circle>
+          <defs>
+            <linearGradient id="ringBaseGradient" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="${getComputedStyle(document.documentElement).getPropertyValue('--ring').trim()}" />
+              <stop offset="100%" stop-color="#9ca3af" />
+            </linearGradient>
+          </defs>
+          <circle class="donut-arc" cx="${r}" cy="${r}" r="${r}" stroke="${color}" stroke-width="${thick}" fill="none"
+                  stroke-dasharray="${c}" stroke-dashoffset="${off}" stroke-linecap="round"></circle>
+        </g>
       </svg>
       <div class="donut-center"><div class="big">${percent}%</div><div class="small">${label}</div></div>
     </div>
   </div>`;
 }
 
-/* ==================== SERVER PROGRESS SYNC (AUTO) ==================== */
+/* ==================== SERVER PROGRESS SYNC ==================== */
 async function saveProgressServer(){
   if(!currentPlan) return;
   try{
@@ -750,50 +773,37 @@ async function saveProgressServer(){
       body:JSON.stringify(payload)
     });
     if(!r.ok) throw 0;
-    // optional toast suppressed to avoid noise; uncomment if desired:
-    // toast('✅ Progress synced');
-  }catch{
-    // silent fail; local storage remains the source of truth when offline
-  }
+  }catch{/* silent fail */}
 }
 function scheduleAutoSaveToServer(){
   if(!debouncedSaveToServer){
-    debouncedSaveToServer = debounce(saveProgressServer, 1000); // ✅ 1s debounce
+    debouncedSaveToServer = debounce(saveProgressServer, 1000);
   }
   debouncedSaveToServer();
 }
 
-/* Attempt to load existing progress from server (server overrides local) */
+/* Load progress from server (server overrides matching keys) */
 async function loadServerProgress(){
-  if(!currentPlanId) return; // Only for saved plans
+  if(!currentPlanId) return;
   try{
-    // Try common patterns
     let r = await fetch(`${API}/plans/progress/get?plan_id=${currentPlanId}`, {headers:{Authorization:`Bearer ${token}`}});
-    if(!r.ok){
-      // fallback route variants for compatibility
-      r = await fetch(`${API}/plans/${currentPlanId}/progress`, {headers:{Authorization:`Bearer ${token}`}});
-    }
+    if(!r.ok){ r = await fetch(`${API}/plans/${currentPlanId}/progress`, {headers:{Authorization:`Bearer ${token}`}}); }
     if(!r.ok) return;
     const data = await r.json();
     if(data && data.progress_json){
-      // server wins – merge/overwrite where present
       progress = {...progress, ...data.progress_json};
       saveLocalProgress();
       renderDaily(); renderWeekly(); renderProgress();
       toast('☁️ Progress loaded from server');
     }
-  }catch{/* ignore */}
+  }catch{}
 }
 
-/* ==================== OPTIONAL: MANUAL SAVE BUTTON ==================== */
+/* Manual sync & clear */
 $('syncBtn').onclick = async ()=>{
   if(!currentPlan){ return toast('No plan'); }
-  try{
-    await saveProgressServer();
-    toast('✅ Progress synced');
-  }catch{
-    toast('ℹ️ Could not sync. Stored locally.');
-  }
+  try{ await saveProgressServer(); toast('✅ Progress synced'); }
+  catch{ toast('ℹ️ Could not sync. Stored locally.'); }
 };
 $('clearProgBtn').onclick = ()=>{
   if(!currentPlan) return;
@@ -804,23 +814,22 @@ $('clearProgBtn').onclick = ()=>{
   toast('🧹 Cleared');
 };
 
-/* ==================== CONTINUE PLAN (NEXT UNCOMPLETED) ==================== */
+/* ==================== CONTINUE PLAN ==================== */
 function findNextUncompletedDate(){
   if(!currentPlan) return null;
   const days = currentPlan.schedule || [];
   for(const d of days){
     const mark = getProgressForDate(d.date);
-    const needs = ['theory','mcq','recall'];
-    if(d.is_mock_day) needs.push('mock');
+    const needs = ['theory','mcq','recall']; if(d.is_mock_day) needs.push('mock');
     const done = needs.every(k=>!!mark[k]);
     if(!done) return d.date;
   }
   return null;
 }
 
-/* ==================== APP BOOT ==================== */
+/* ==================== BOOT ==================== */
 (async function boot(){
-  if(!token) return;    // stay at auth gate
+  if(!token) return;
   try{
     const me = await fetch(`${API}/me`, {headers:{Authorization:`Bearer ${token}`}});
     if(!me.ok) return;
@@ -836,14 +845,11 @@ function findNextUncompletedDate(){
   }catch{}
 })();
 
-/* ==================== DECORATIVE: PULSE HIGHLIGHT ==================== */
+/* Decorative pulse highlight for Continue Plan jump */
 const style = document.createElement('style');
 style.textContent = `
   .pulse{animation:pulse 1.2s ease-out 1}
-  @keyframes pulse{
-    0%{box-shadow:0 0 0 0 rgba(16,185,129,.45)}
-    100%{box-shadow:0 0 0 22px rgba(16,185,129,0)}
-  }
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.45)}100%{box-shadow:0 0 0 26px rgba(16,185,129,0)}}
 `;
 document.head.appendChild(style);
 </script>
