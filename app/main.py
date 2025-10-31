@@ -36,6 +36,7 @@ if os.path.exists(static_dir):
 # -------------------------------------------------------------------
 try:
     from app.database import init_db
+
     @app.on_event("startup")
     def startup_event():
         try:
@@ -43,6 +44,7 @@ try:
             print("✅ Database initialized successfully.")
         except Exception as e:
             print(f"⚠️ Database initialization failed: {e}")
+
 except Exception as e:
     print(f"⚠️ Could not import database initialization: {e}")
 
@@ -50,12 +52,9 @@ except Exception as e:
 # Routers Registration
 # -------------------------------------------------------------------
 try:
-    # Import core auth utilities (not a router)
-    from app import auth  
-
-    # Import API routers
+    # Import all API routers
     from app.routers import users, plans, progress
-    app.include_router(auth.router, prefix="/api", tags=["Auth"])
+
     app.include_router(users.router, prefix="/api", tags=["Users"])
     app.include_router(plans.router, prefix="/api", tags=["Plans"])
     app.include_router(progress.router, prefix="/api", tags=["Progress"])
