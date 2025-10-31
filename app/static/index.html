@@ -549,6 +549,11 @@
           <!-- WEEKLY -->
           <div id="panel-weekly" style="display:none">
             <div id="weeklyList"></div>
+
+            <!-- ✅ Added Save Plan Button for first-time save -->
+            <div class="actions-row" id="weeklySaveRow" style="display:none; margin-top:20px;">
+              <button class="btn primary" id="weeklySaveBtn">💾 Save Plan</button>
+            </div>
           </div>
 
           <!-- DAILY -->
@@ -1140,6 +1145,27 @@ fsReset?.addEventListener('click', ()=>{
   handle.addEventListener('touchstart', onDown, {passive:false});
 })(fsModal, fsDragHandle);
 
+/* ✅ Show Save button in weekly view for first-time plans */
+document.getElementById('genBtn')?.addEventListener('click', async ()=>{
+  // existing plan generation logic here...
+  document.getElementById('weeklySaveRow').style.display = 'flex';
+});
+
+/* ✅ Handle Save Plan click in weekly view */
+document.getElementById('weeklySaveBtn')?.addEventListener('click', async ()=>{
+  if(!currentPlan) return;
+  const name = prompt('Name this plan:', `Plan ${currentPlan.meta?.start_date || ''}`);
+  if(!name) return;
+  const r = await fetch(`${API}/plans/save`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`},
+    body:JSON.stringify({name, data:currentPlan})
+  });
+  if(!r.ok){ toast('❌ Failed to save plan'); return; }
+  toast('💾 Plan saved');
+  document.getElementById('weeklySaveRow').style.display = 'none';
+  await loadSavedPlans();
+});
 /* ==================== BOOT (kept) ==================== */
 (async function boot(){
   if(!token) return;
