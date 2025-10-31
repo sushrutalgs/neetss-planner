@@ -69,7 +69,6 @@
     input {
       padding: 8px;
       width: 100%;
-      max-width: 100%;
       border: 1px solid #ccc;
       border-radius: 6px;
       font-size: 1rem;
@@ -109,17 +108,8 @@
       text-align: center;
     }
 
-    .summary-card h3 {
-      margin: 0;
-      font-size: 0.9rem;
-      color: var(--muted);
-    }
-
-    .summary-card p {
-      margin: 4px 0 0;
-      font-weight: 600;
-      color: var(--text);
-    }
+    .summary-card h3 { margin: 0; font-size: 0.9rem; color: var(--muted); }
+    .summary-card p { margin: 4px 0 0; font-weight: 600; color: var(--text); }
 
     .grid {
       display: grid;
@@ -149,32 +139,22 @@
       color: #fff;
     }
 
-    .initial70 { background: var(--foundation); }
-    .middle { background: var(--consolidation); }
-    .revision-tag { background: var(--revision); }
-
     .mockday { color: var(--danger); font-weight: 700; }
-
     .muted { color: var(--muted); font-size: 0.9rem; }
 
-    hr.section {
-      margin: 2rem 0 1rem;
+    ul { margin: 0.4rem 0 0 1rem; color: var(--muted); }
+
+    .selfcheck label { display: block; margin: .3rem 0; font-size: 0.9rem; }
+
+    #mentorBtn {
+      margin-top: .8rem;
+      background: #999;
+      opacity: .6;
+      cursor: not-allowed;
       border: none;
-      border-top: 2px solid #ccc;
-    }
-
-    ul {
-      margin: 0.4rem 0 0 1rem;
-      padding: 0;
-      font-size: 0.9rem;
-      color: var(--muted);
-    }
-
-    footer {
-      text-align: center;
-      margin-top: 3rem;
-      font-size: 0.85rem;
-      color: var(--muted);
+      border-radius: 6px;
+      color: #fff;
+      padding: 6px 10px;
     }
 
     .pagination {
@@ -192,10 +172,7 @@
       cursor: pointer;
     }
 
-    .pagination button[disabled] {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+    .pagination button[disabled] { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 
@@ -206,27 +183,22 @@
   </header>
 
   <form onsubmit="event.preventDefault(); makePlan();">
-    <label>Start Date</label>
-    <input id="start" type="date" required />
-    <label>Exam Date</label>
-    <input id="exam" type="date" required />
-    <label>Hours / Day</label>
-    <input id="hours" type="number" step="0.5" min="1" value="6" />
-    <label>Number of Mocks</label>
-    <input id="mocks" type="number" min="0" value="4" />
-    <label>Avg Minutes per MCQ (2.0–3.0)</label>
-    <input id="permcq" type="number" step="0.1" min="2.0" max="3.0" value="2.5" />
+    <label>Start Date</label><input id="start" type="date" required>
+    <label>Exam Date</label><input id="exam" type="date" required>
+    <label>Hours / Day</label><input id="hours" type="number" step="0.5" min="1" value="6">
+    <label>Number of Mocks</label><input id="mocks" type="number" min="0" value="4">
+    <label>Avg Minutes per MCQ (2.0–3.0)</label><input id="permcq" type="number" step="0.1" min="2.0" max="3.0" value="2.5">
     <button type="submit">Generate Plan</button>
   </form>
 
   <section id="summary"></section>
-  <hr class="section">
+  <hr>
   <section>
     <h2>📅 Weekly Overview</h2>
     <div id="weeks" class="grid"></div>
   </section>
 
-  <hr class="section">
+  <hr>
   <section>
     <h2>🧭 Daily Plan</h2>
     <div id="days" class="grid"></div>
@@ -237,40 +209,28 @@
   </footer>
 
   <script>
-    let currentPage = 1;
-    const daysPerPage = 14;
-    let allSchedule = [];
+    let allSchedule = [], currentPage = 1, daysPerPage = 14;
 
     async function makePlan() {
-      const start = document.getElementById('start').value;
-      const exam = document.getElementById('exam').value;
-      const hours = parseFloat(document.getElementById('hours').value);
-      const mocks = parseInt(document.getElementById('mocks').value, 10);
-      const permcq = parseFloat(document.getElementById('permcq').value);
-      const payload = { start_date: start, exam_date: exam, hours_per_day: hours, mocks: mocks, avg_minutes_per_mcq: permcq };
-
-      const res = await fetch('/plan', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
+      const payload = {
+        start_date: document.getElementById('start').value,
+        exam_date: document.getElementById('exam').value,
+        hours_per_day: +document.getElementById('hours').value,
+        mocks: +document.getElementById('mocks').value,
+        avg_minutes_per_mcq: +document.getElementById('permcq').value
+      };
+      const r = await fetch('/plan', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
       });
-
-      if (!res.ok) {
-        alert('Error generating plan');
-        return;
-      }
-
-      const data = await res.json();
+      if (!r.ok) return alert('Error generating plan');
+      const data = await r.json();
       allSchedule = data.schedule;
-      currentPage = 1;
-      renderSummary(data);
-      renderWeeks(data);
-      renderDaysPage();
+      renderSummary(data); renderWeeks(data); renderDaysPage();
     }
 
     function renderSummary(data) {
-      const s = document.getElementById('summary');
-      s.innerHTML = `
+      document.getElementById('summary').innerHTML = `
         <h2>📘 Plan Summary</h2>
         <div class="summary-grid">
           <div class="summary-card"><h3>Start Date</h3><p>${data.meta.start_date}</p></div>
@@ -279,94 +239,76 @@
           <div class="summary-card"><h3>Hours/Day</h3><p>${data.meta.hours_per_day}</p></div>
           <div class="summary-card"><h3>Mocks Scheduled</h3><p>${data.meta.mock_days_indexed.length}</p></div>
         </div>
-        <p class="muted">Mock Days: ${data.meta.mock_days_indexed.join(', ')}</p>
-      `;
+        <p class="muted">Mock Days: ${data.meta.mock_days_indexed.join(', ') || '—'}</p>`;
     }
 
     function renderWeeks(data) {
-      const weeks = document.getElementById('weeks');
-      weeks.innerHTML = '';
+      const wrap = document.getElementById('weeks');
+      wrap.innerHTML = '';
       data.weekly_summaries.forEach(w => {
-        let phaseClass = '';
-        if (w.phase.includes('Foundation')) phaseClass = 'foundation';
-        else if (w.phase.includes('Consolidation')) phaseClass = 'consolidation';
-        else phaseClass = 'revision';
-
+        const cls = w.phase.includes('Foundation') ? 'foundation' :
+                    w.phase.includes('Consolidation') ? 'consolidation' : 'revision';
+        const id = `week-${w.week}`;
+        const chk = getChecks(id);
         const el = document.createElement('div');
-        el.className = `card ${phaseClass}`;
+        el.className = `card ${cls}`;
         el.innerHTML = `
           <h3>Week ${w.week} – ${w.phase}</h3>
-          <div class="muted">${w.start_date} → ${w.end_date}</div>
-          <p><b>Theory Topics:</b> ${w.theory_topics.join(', ')}</p>
-          <p><b>MCQ Topics:</b> ${w.mcq_topics.join(', ')}</p>
-          <p><b>Mocks:</b> ${w.mocks}</p>
-          <ul>${w.suggestions.map(s => `<li>${s}</li>`).join('')}</ul>
-        `;
-        weeks.appendChild(el);
+          <p class="muted">${w.start_date} → ${w.end_date}</p>
+          <p><b>🎯 Targets:</b> Theory ${w.weekly_targets.theory_min} min | MCQ ${w.weekly_targets.mcq_min} min (~${w.weekly_targets.approx_mcqs} Qs) | Recall ${w.weekly_targets.recall_min} min</p>
+          <p><b>Focus:</b></p><ul>${w.focus_notes.map(f => `<li>${f}</li>`).join('')}</ul>
+          <p><i>"${w.quote}"</i></p>
+          <div class="selfcheck">
+            <label><input type="checkbox" onchange="saveCheck('${id}',0,this.checked)" ${chk[0]?'checked':''}> Completed all theory sessions</label>
+            <label><input type="checkbox" onchange="saveCheck('${id}',1,this.checked)" ${chk[1]?'checked':''}> Reviewed recall topics</label>
+            <label><input type="checkbox" onchange="saveCheck('${id}',2,this.checked)" ${chk[2]?'checked':''}> Analyzed mock errors</label>
+          </div>
+          <button id="mentorBtn" disabled>AI Mentor Mode (Coming Soon)</button>`;
+        wrap.appendChild(el);
       });
     }
 
-    function renderDaysPage() {
-      const daysContainer = document.getElementById('days');
-      daysContainer.innerHTML = '';
+    function getChecks(id){return JSON.parse(localStorage.getItem(id)||'[false,false,false]');}
+    function saveCheck(id,idx,val){const arr=getChecks(id);arr[idx]=val;localStorage.setItem(id,JSON.stringify(arr));}
 
-      const startIdx = (currentPage - 1) * daysPerPage;
-      const endIdx = Math.min(startIdx + daysPerPage, allSchedule.length);
-      const currentDays = allSchedule.slice(startIdx, endIdx);
-
-      currentDays.forEach(d => {
-        const el = document.createElement('div');
-        el.className = 'card';
-        const phaseColor = d.phase === 'initial70' ? 'initial70' :
-                           d.phase === 'middle' ? 'middle' : 'revision-tag';
-
-        if (d.is_mock_day) {
-          el.innerHTML = `
+    function renderDaysPage(){
+      const cont=document.getElementById('days');
+      cont.innerHTML='';
+      const s=(currentPage-1)*daysPerPage, e=Math.min(s+daysPerPage,allSchedule.length);
+      allSchedule.slice(s,e).forEach(d=>{
+        const el=document.createElement('div');el.className='card';
+        const cls=d.phase.includes('Foundation')?'foundation':d.phase.includes('Consolidation')?'consolidation':'revision';
+        if(d.is_mock_day){
+          el.innerHTML=`
             <h3>${d.date} <span class="mockday">— MOCK DAY</span></h3>
-            <span class="phase-tag ${phaseColor}">${d.phase.toUpperCase()}</span>
+            <span class="phase-tag" style="background:var(--${cls})">${d.phase}</span>
             <p><b>Mock Exam:</b> ${d.mock.minutes} min + <b>Analysis:</b> ${d.mock.analysis_minutes} min</p>
-            <p><b>Recall:</b> ${d.recall.due_topics.length ? d.recall.due_topics.join(', ') : '—'} (${d.recall.minutes} min)</p>
-            <p class="muted">No Theory or MCQs today — Focus on analysis and spaced recall.</p>
-          `;
-        } else {
-          el.innerHTML = `
+            <p><b>Recall:</b> ${d.recall.due_topics.join(', ')||'—'} (${d.recall.minutes} min)</p>
+            <p class="muted">No Theory or MCQs today — focus on analysis and spaced recall.</p>`;
+        }else{
+          el.innerHTML=`
             <h3>${d.date}</h3>
-            <span class="phase-tag ${phaseColor}">${d.phase.toUpperCase()}</span>
+            <span class="phase-tag" style="background:var(--${cls})">${d.phase}</span>
             <p><b>Theory:</b> ${d.theory.topic} (${d.theory.minutes} min)</p>
-            <p><b>MCQ:</b> ${d.mcq.topic} (${d.mcq.minutes} min, target ≈ ${d.mcq.target_questions})</p>
-            <p><b>Recall:</b> ${d.recall.due_topics.length ? d.recall.due_topics.join(', ') : '—'} (${d.recall.minutes} min)</p>
-          `;
+            <p><b>MCQ:</b> ${d.mcq.topic} (${d.mcq.minutes} min, ~${d.mcq.target_questions} Qs)</p>
+            <p><b>Recall:</b> ${d.recall.due_topics.join(', ')||'—'} (${d.recall.minutes} min)</p>`;
         }
-
-        daysContainer.appendChild(el);
+        cont.appendChild(el);
       });
-
-      const totalPages = Math.ceil(allSchedule.length / daysPerPage);
-      const pagination = document.createElement('div');
-      pagination.className = 'pagination';
-      pagination.innerHTML = `
-        <button onclick="prevPage()" ${currentPage === 1 ? 'disabled' : ''}>⏮️ Prev</button>
-        <span>Page ${currentPage} of ${totalPages}</span>
-        <button onclick="nextPage()" ${currentPage === totalPages ? 'disabled' : ''}>Next ⏭️</button>
-      `;
-      daysContainer.appendChild(pagination);
+      const totalPages=Math.ceil(allSchedule.length/daysPerPage);
+      cont.innerHTML+=`
+        <div class="pagination">
+          <button onclick="page(-1)" ${currentPage==1?'disabled':''}>⏮️ Prev</button>
+          Page ${currentPage}/${totalPages}
+          <button onclick="page(1)" ${currentPage==totalPages?'disabled':''}>Next ⏭️</button>
+        </div>`;
     }
 
-    function nextPage() {
-      const totalPages = Math.ceil(allSchedule.length / daysPerPage);
-      if (currentPage < totalPages) {
-        currentPage++;
-        renderDaysPage();
-        window.scrollTo(0, 400);
-      }
-    }
-
-    function prevPage() {
-      if (currentPage > 1) {
-        currentPage--;
-        renderDaysPage();
-        window.scrollTo(0, 400);
-      }
+    function page(dir){
+      const totalPages=Math.ceil(allSchedule.length/daysPerPage);
+      if(dir>0&&currentPage<totalPages)currentPage++;
+      else if(dir<0&&currentPage>1)currentPage--;
+      renderDaysPage(); window.scrollTo(0,300);
     }
   </script>
 </body>
