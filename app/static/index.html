@@ -6,195 +6,207 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 
 <style>
-  :root {
-    --primary:#004e92;
-    --secondary:#000428;
-    --accent:#1abc9c;
-    --danger:#c62828;
-    --bg:linear-gradient(135deg,#f8fafc,#eef2f3);
-    --card-bg:rgba(255,255,255,0.7);
-    --shadow:0 8px 25px rgba(0,0,0,0.08);
-    --text:#1e293b;
-    --muted:#64748b;
-  }
+:root {
+  --primary:#004e92;
+  --secondary:#000428;
+  --accent:#1abc9c;
+  --danger:#c62828;
+  --bg:linear-gradient(135deg,#f8fafc,#eef2f3);
+  --card-bg:rgba(255,255,255,0.75);
+  --shadow:0 8px 25px rgba(0,0,0,0.1);
+  --text:#1e293b;
+  --muted:#64748b;
+}
+body.dark {
+  --primary:#1e293b;
+  --secondary:#0f172a;
+  --accent:#10b981;
+  --bg:linear-gradient(135deg,#0f172a,#1e293b);
+  --card-bg:rgba(30,41,59,0.85);
+  --shadow:0 8px 25px rgba(255,255,255,0.08);
+  --text:#f1f5f9;
+  --muted:#94a3b8;
+  color-scheme:dark;
+}
 
-  *{box-sizing:border-box;}
-  body{
-    margin:0;
-    font-family:'Inter','Poppins',sans-serif;
-    color:var(--text);
-    background:var(--bg);
-    overflow-x:hidden;
-  }
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family:'Inter','Poppins',sans-serif;
+  color:var(--text);
+  background:var(--bg);
+  transition:background 0.4s,color 0.4s;
+}
 
-  header{
-    background:linear-gradient(135deg,var(--primary),var(--secondary));
-    color:#fff;
-    padding:1.5rem 2rem;
-    text-align:center;
-    position:sticky;top:0;z-index:10;
-    box-shadow:var(--shadow);
-  }
-  header img{height:60px;position:absolute;left:1.5rem;top:1rem;}
-  h1{margin:0;font-size:2rem;font-weight:700;}
-  p.subtitle{opacity:0.85;margin:0.4rem 0 0;font-size:1rem;font-weight:400;}
+/* LOGIN SCREEN */
+.auth-screen {
+  display:flex;align-items:center;justify-content:center;
+  height:100vh;background:linear-gradient(135deg,var(--primary),var(--secondary));
+}
+.auth-card {
+  background:var(--card-bg);
+  border-radius:16px;
+  backdrop-filter:blur(8px);
+  padding:2rem 3rem;
+  box-shadow:var(--shadow);
+  width:100%;max-width:400px;text-align:center;
+  animation:fadeIn 0.6s;
+}
+.auth-logo{height:80px;margin-bottom:1rem;}
+.input-group{position:relative;margin:1.2rem 0;}
+.input-group input{
+  width:100%;padding:12px;border:1px solid #d0d7de;border-radius:10px;
+  font-size:1rem;background:transparent;outline:none;color:var(--text);
+}
+.input-group label{
+  position:absolute;left:14px;top:12px;color:var(--muted);pointer-events:none;
+  transition:0.2s ease all;background:var(--card-bg);padding:0 4px;
+}
+.input-group input:focus + label,
+.input-group input:valid + label{
+  top:-8px;left:10px;font-size:0.75rem;color:var(--accent);
+}
 
-  main{
-    display:grid;
-    grid-template-columns:1fr 2fr;
-    gap:2rem;
-    padding:2rem;
-  }
-  @media(max-width:900px){main{grid-template-columns:1fr;}}
+button{
+  border:none;border-radius:8px;padding:10px 16px;margin:5px;
+  cursor:pointer;font-size:1rem;transition:all 0.25s;
+}
+button.accent{
+  background:linear-gradient(135deg,#2563eb,#1d4ed8);
+  color:#fff;box-shadow:0 2px 10px rgba(37,99,235,0.25);
+}
+button.accent:hover{transform:translateY(-1px);filter:brightness(1.1);}
+button.secondary{background:#e2e8f0;color:#1e293b;}
+button.secondary:hover{background:#cbd5e1;}
+button.danger{background:var(--danger);color:#fff;}
+button.danger:hover{background:#b71c1c;}
 
-  .sidebar, .planner{
-    background:var(--card-bg);
-    border-radius:16px;
-    backdrop-filter:blur(8px);
-    box-shadow:var(--shadow);
-    padding:1.5rem 2rem;
-    animation:fadeIn 0.6s ease;
-  }
+p.muted{color:var(--muted);font-size:0.9rem;}
 
-  h2,h3{margin-top:0;}
-  .muted{color:var(--muted);}
+/* DASHBOARD */
+#dashboard{display:none;min-height:100vh;}
+.navbar{
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+  display:flex;justify-content:space-between;align-items:center;
+  padding:1rem 2rem;color:#fff;box-shadow:var(--shadow);
+  position:sticky;top:0;z-index:10;
+}
+.navbar img{height:50px;}
+.nav-tabs button{
+  background:none;border:none;color:#fff;opacity:0.8;
+  font-size:1rem;margin:0 0.5rem;cursor:pointer;
+  transition:0.3s;font-weight:500;
+}
+.nav-tabs button.active{opacity:1;font-weight:600;border-bottom:2px solid var(--accent);}
+.content{padding:2rem;animation:fadeIn 0.5s;}
+.card{
+  background:var(--card-bg);
+  border-radius:16px;padding:1.5rem 2rem;
+  box-shadow:var(--shadow);
+  backdrop-filter:blur(8px);
+  animation:fadeIn 0.6s;
+}
 
-  /* Floating labels */
-  .input-group{position:relative;margin:1.2rem 0;}
-  .input-group input{
-    width:100%;
-    padding:12px;
-    border:1px solid #d0d7de;
-    border-radius:10px;
-    font-size:1rem;
-    background:transparent;
-    outline:none;
-  }
-  .input-group label{
-    position:absolute;
-    left:14px;top:12px;
-    color:#777;
-    pointer-events:none;
-    transition:0.2s ease all;
-    background:var(--card-bg);
-    padding:0 4px;
-  }
-  .input-group input:focus + label,
-  .input-group input:valid + label{
-    top:-8px;left:10px;font-size:0.75rem;color:var(--primary);
-  }
+/* PROGRESS BAR */
+progress {
+  width:100%;height:20px;border-radius:10px;overflow:hidden;
+  appearance:none;
+}
+progress::-webkit-progress-bar {background:#e2e8f0;border-radius:10px;}
+progress::-webkit-progress-value {background:var(--accent);border-radius:10px;}
+progress::-moz-progress-bar {background:var(--accent);}
 
-  button{
-    border:none;
-    border-radius:8px;
-    padding:10px 16px;
-    margin:5px;
-    cursor:pointer;
-    font-size:1rem;
-    transition:all 0.25s;
-  }
-  button.accent{
-    background:linear-gradient(135deg,#2563eb,#1d4ed8);
-    color:#fff;
-    box-shadow:0 2px 10px rgba(37,99,235,0.25);
-  }
-  button.accent:hover{transform:translateY(-1px);filter:brightness(1.1);}
-  button.danger{background:var(--danger);color:#fff;}
-  button.danger:hover{background:#b71c1c;}
-  button.secondary{background:#e2e8f0;color:#1e293b;}
-  button.secondary:hover{background:#cbd5e1;}
-
-  .plan-item{
-    background:rgba(255,255,255,0.8);
-    border-radius:12px;
-    display:flex;justify-content:space-between;align-items:center;
-    padding:0.8rem 1rem;margin-bottom:0.6rem;
-    transition:0.3s;
-  }
-  .plan-item:hover{transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,0.1);}
-
-  .plan-summary{
-    background:#eef7ff;
-    border-left:5px solid var(--accent);
-    border-radius:8px;
-    padding:1rem;margin-bottom:1rem;
-  }
-
-  .tab-header{display:flex;justify-content:center;gap:0.6rem;margin:1rem 0;}
-  .tab-header button{background:#e2e8f0;border:none;border-radius:6px;padding:8px 16px;}
-  .tab-header button.active{background:var(--accent);color:#fff;font-weight:600;}
-  .pagination{text-align:center;margin-top:1rem;}
-
-  #toast{
-    position:fixed;bottom:20px;right:20px;
-    background:linear-gradient(135deg,#2563eb,#1d4ed8);
-    color:#fff;padding:12px 20px;border-radius:8px;
-    box-shadow:0 4px 10px rgba(0,0,0,0.2);
-    opacity:0;transform:translateY(20px);
-    transition:all 0.4s;
-    z-index:1000;
-  }
-  #toast.show{opacity:1;transform:translateY(0);}
-  @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+/* TOAST */
+#toast{
+  position:fixed;bottom:20px;right:20px;
+  background:linear-gradient(135deg,#2563eb,#1d4ed8);
+  color:#fff;padding:12px 20px;border-radius:8px;
+  box-shadow:0 4px 10px rgba(0,0,0,0.2);
+  opacity:0;transform:translateY(20px);
+  transition:all 0.4s;z-index:1000;
+}
+#toast.show{opacity:1;transform:translateY(0);}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
 </style>
 </head>
 
 <body>
-<header>
-  <img src="/static/logo.png" alt="Sushruta LGS Logo"/>
-  <h1>Sushruta LGS — AI Study Planner</h1>
-  <p class="subtitle">Rule of 3 • Interleaved Learning • Smart Recall</p>
-</header>
+<!-- LOGIN -->
+<section id="authScreen" class="auth-screen">
+  <div class="auth-card" id="loginArea">
+    <img src="/static/logo.png" class="auth-logo" alt="Sushruta LGS Logo"/>
+    <h2>Welcome Back 👋</h2>
+    <div class="input-group"><input id="loginEmail" type="email" required><label>Email</label></div>
+    <div class="input-group"><input id="loginPassword" type="password" required><label>Password</label></div>
+    <button class="accent" onclick="login()">Login</button>
+    <p class="muted">New user? <a href="#" onclick="showRegister()">Register</a></p>
+  </div>
 
-<main>
-  <!-- Sidebar -->
-  <aside class="sidebar" id="authPanel">
-    <div id="loginArea">
-      <h2>Welcome Back 👋</h2>
-      <div class="input-group"><input id="loginEmail" type="email" required><label>Email</label></div>
-      <div class="input-group"><input id="loginPassword" type="password" required><label>Password</label></div>
-      <button class="accent" onclick="login()">Login</button>
-      <button class="secondary" onclick="showRegister()">Register</button>
+  <div class="auth-card" id="registerArea" style="display:none;">
+    <img src="/static/logo.png" class="auth-logo" alt="Sushruta LGS Logo"/>
+    <h2>Create Account</h2>
+    <div class="input-group"><input id="regName" required><label>Full Name</label></div>
+    <div class="input-group"><input id="regEmail" type="email" required><label>Email</label></div>
+    <div class="input-group"><input id="regGoal"><label>Goal (e.g. Surgical Gastroenterology)</label></div>
+    <div class="input-group"><input id="regPassword" type="password" required><label>Password</label></div>
+    <button class="accent" onclick="register()">Register</button>
+    <p class="muted">Already registered? <a href="#" onclick="showLogin()">Login</a></p>
+  </div>
+</section>
+
+<!-- DASHBOARD -->
+<section id="dashboard">
+  <nav class="navbar">
+    <img src="/static/logo.png" alt="Logo"/>
+    <div class="nav-tabs">
+      <button onclick="showTab('planner')" class="active">🧭 Planner</button>
+      <button onclick="showTab('plans')">📘 Plans</button>
+      <button onclick="showTab('daily')">🗓 Daily</button>
+      <button onclick="showTab('weekly')">📆 Weekly</button>
+      <button onclick="showTab('progress')">📊 Progress</button>
+      <button onclick="showTab('help')">❓ Help</button>
+    </div>
+    <div>
+      <button class="secondary" id="themeToggle">🌙</button>
+      <button class="secondary" onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <div class="content">
+    <div id="tab-planner" class="card">
+      <h2>🧭 Create Your Study Plan</h2>
+      <form id="planForm" onsubmit="event.preventDefault();makePlan();">
+        <div class="input-group"><input id="start" type="date" required><label>Start Date</label></div>
+        <div class="input-group"><input id="exam" type="date" required><label>Exam Date</label></div>
+        <div class="input-group"><input id="hours" type="number" step="0.5" value="6" required><label>Study Hours / Day</label></div>
+        <div class="input-group"><input id="mocks" type="number" min="0" value="4" required><label>Number of Mock Exams</label></div>
+        <div class="input-group"><input id="avg_mcq" type="number" step="0.1" value="2.5" min="1" max="5" required><label>Average Minutes per MCQ</label></div>
+        <button type="submit" class="accent">Generate Plan</button>
+      </form>
+      <div id="planOutput" style="display:none;">
+        <div id="summary" class="card" style="margin-top:1rem;"></div>
+      </div>
     </div>
 
-    <div id="registerArea" style="display:none;">
-      <h2>Create Account</h2>
-      <div class="input-group"><input id="regName" required><label>Full Name</label></div>
-      <div class="input-group"><input id="regEmail" type="email" required><label>Email</label></div>
-      <div class="input-group"><input id="regGoal"><label>Goal (e.g. Surgical Gastroenterology)</label></div>
-      <div class="input-group"><input id="regPassword" type="password" required><label>Password</label></div>
-      <button class="accent" onclick="register()">Register</button>
-      <button class="secondary" onclick="showLogin()">Back</button>
+    <div id="tab-plans" class="card" style="display:none;">
+      <h2>💾 Saved Plans</h2>
+      <div id="savedPlans"></div>
     </div>
 
-    <div id="savedPlans" style="margin-top:2rem;"></div>
-  </aside>
+    <div id="tab-daily" class="card" style="display:none;"><h2>🗓 Daily Schedule</h2><div id="dailyContent"></div></div>
+    <div id="tab-weekly" class="card" style="display:none;"><h2>📆 Weekly Overview</h2><div id="weeklyContent"></div></div>
 
-  <!-- Planner -->
-  <section class="planner" id="plannerArea" style="display:none;">
-    <h2 id="welcomeMsg"></h2>
-    <button class="secondary" onclick="logout()">Logout</button>
-
-    <form id="planForm" onsubmit="event.preventDefault();makePlan();">
-      <h3>🧭 Create Your Study Plan</h3>
-
-      <div class="input-group"><input id="start" type="date" required><label>Start Date</label></div>
-      <div class="input-group"><input id="exam" type="date" required><label>Exam Date</label></div>
-      <div class="input-group"><input id="hours" type="number" step="0.5" value="6" required><label>Study Hours / Day</label></div>
-      <div class="input-group"><input id="mocks" type="number" min="0" value="4" required><label>Number of Mock Exams</label></div>
-      <div class="input-group"><input id="avg_mcq" type="number" step="0.1" value="2.5" min="1" max="5" required><label>Average Minutes per MCQ</label></div>
-
-      <button type="submit" class="accent">Generate Plan</button>
-    </form>
-
-    <div id="planOutput" style="display:none;">
-      <div class="plan-summary" id="summary"></div>
-      <div id="tabs"></div>
-      <div id="tabContent"></div>
-      <div id="planActions" style="text-align:center;margin-top:1rem;"></div>
+    <div id="tab-progress" class="card" style="display:none;">
+      <h2>📊 Progress Tracker</h2>
+      <div id="progressContent"></div>
     </div>
-  </section>
-</main>
+
+    <div id="tab-help" class="card" style="display:none;">
+      <h2>❓ Help & Tips</h2>
+      <p>💡 Regular practice and analysis are key. Take one mock weekly, analyze thoroughly, and mark weak topics for revision.</p>
+    </div>
+  </div>
+</section>
 
 <div id="toast"></div>
 
@@ -209,6 +221,17 @@ function toast(msg){
   setTimeout(()=>t.classList.remove('show'),3000);
 }
 
+// DARK MODE TOGGLE
+const themeToggle=document.getElementById('themeToggle');
+if(localStorage.getItem('theme')==='dark'){document.body.classList.add('dark');themeToggle.textContent='☀️';}
+themeToggle.onclick=()=>{
+  document.body.classList.toggle('dark');
+  const isDark=document.body.classList.contains('dark');
+  themeToggle.textContent=isDark?'☀️':'🌙';
+  localStorage.setItem('theme',isDark?'dark':'light');
+};
+
+// AUTH
 function showLogin(){loginArea.style.display='block';registerArea.style.display='none';}
 function showRegister(){loginArea.style.display='none';registerArea.style.display='block';}
 function logout(){localStorage.clear();location.reload();}
@@ -220,21 +243,39 @@ async function login(){
   const d=await res.json();token=d.access_token;localStorage.setItem('token',token);
   loadUser();toast('✅ Logged in successfully');
 }
-
 async function register(){
   const b={name:regName.value,email:regEmail.value,password:regPassword.value,goal:regGoal.value};
   const r=await fetch(`${API}/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
   if(r.ok){toast('✅ Registered! Please login');showLogin();}else toast('❌ Registration failed');
 }
-
 async function loadUser(){
   if(!token)return;
   const r=await fetch(`${API}/me`,{headers:{Authorization:`Bearer ${token}`}});
   if(!r.ok)return;
   const u=await r.json();
-  authPanel.style.display='block';plannerArea.style.display='block';
-  welcomeMsg.textContent=`Welcome back, Dr. ${u.name} 👋`;
-  loadSavedPlans();
+  authScreen.style.display='none';dashboard.style.display='block';
+  toast(`Welcome, Dr. ${u.name} 👋`);
+  loadSavedPlans();showTab('planner');
+}
+
+// TABS
+function showTab(id){
+  document.querySelectorAll('.nav-tabs button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('[id^="tab-"]').forEach(t=>t.style.display='none');
+  document.querySelector(`.nav-tabs button[onclick="showTab('${id}')"]`).classList.add('active');
+  document.getElementById(`tab-${id}`).style.display='block';
+  if(id==='progress')updateProgress();
+}
+
+// PLAN
+async function makePlan(){
+  const p={start_date:start.value,exam_date:exam.value,hours_per_day:+hours.value,mocks:+mocks.value,avg_minutes_per_mcq:+avg_mcq.value};
+  const r=await fetch(`${API}/plan`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(p)});
+  if(!r.ok)return toast('❌ Error generating plan');
+  const d=await r.json();currentPlan=d;
+  summary.innerHTML=`<b>${d.meta.start_date}</b> → <b>${d.meta.exam_date}</b> | ${d.meta.days} days | ${d.meta.hours_per_day}h/day`;
+  planOutput.style.display='block';
+  toast('✅ Plan Generated Successfully!');
 }
 
 async function loadSavedPlans(){
@@ -243,8 +284,7 @@ async function loadSavedPlans(){
   if(!r.ok){c.innerHTML='';return;}
   const plans=await r.json();
   if(!plans.length){c.innerHTML="<p class='muted'>No saved plans yet.</p>";return;}
-  plans.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-  c.innerHTML='<h3>💾 Saved Plans</h3>'+plans.map(p=>`
+  c.innerHTML=plans.map(p=>`
     <div class="plan-item">
       <div><b>${p.name}</b><br><small>${new Date(p.created_at).toLocaleDateString()}</small></div>
       <div>
@@ -255,92 +295,49 @@ async function loadSavedPlans(){
     </div>`).join('');
 }
 
-async function makePlan(){
-  const p={start_date:start.value,exam_date:exam.value,
-           hours_per_day:+hours.value,mocks:+mocks.value,
-           avg_minutes_per_mcq:+avg_mcq.value};
-  const r=await fetch(`${API}/plan`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(p)});
-  if(!r.ok)return toast('❌ Error generating plan');
-  const d=await r.json();currentPlan=d;showPlan();toast('✅ Plan Generated Successfully!');
-}
-
-function showPlan(){
-  const meta=currentPlan.meta;
-  summary.innerHTML=`<b>${meta.start_date}</b> → <b>${meta.exam_date}</b> | ${meta.days} days | ${meta.hours_per_day} h/day | ${meta.mock_days_indexed.length} mocks`;
-  renderTabs();renderWeeklyView();
-  planActions.innerHTML=`<button class="accent" onclick="savePlan()">💾 Save Plan</button>`;
-  planOutput.style.display='block';
-}
-
-function renderTabs(){
-  tabs.innerHTML=`<div class="tab-header">
-    <button id="tabW" class="active" onclick="renderWeeklyView()">📆 Weekly</button>
-    <button id="tabD" onclick="renderDailyView()">🗓 Daily</button>
-  </div>`;
-}
-
-function renderWeeklyView(){
-  const w=currentPlan.weekly_summaries||[];const cur=w[currentWeekIndex];if(!cur)return;
-  tabW.classList.add('active');tabD.classList.remove('active');
-  const c=cur.phase.includes("Foundation")?"#43a047":cur.phase.includes("Consolidation")?"#1e88e5":"#ef6c00";
-  tabContent.innerHTML=`<div style="border-left:6px solid ${c};padding-left:14px;">
-    <h3>${cur.phase} – Week ${cur.week}</h3>
-    <p>${cur.start_date} → ${cur.end_date}</p>
-    <ul>${cur.focus_notes.map(n=>`<li>${n}</li>`).join('')}</ul>
-    <p>🎯 Theory: ${cur.weekly_targets.theory_hr} h | 🧠 MCQs: ${cur.weekly_targets.approx_mcqs} | 🔁 Recall: ${cur.weekly_targets.recall_hr} h</p>
-  </div>
-  <div class="pagination">
-    <button class="secondary" onclick="prevWeek()" ${currentWeekIndex===0?'disabled':''}>⬅ Prev</button>
-    <span>Week ${currentWeekIndex+1}/${w.length}</span>
-    <button class="secondary" onclick="nextWeek()" ${currentWeekIndex===w.length-1?'disabled':''}>Next ➡</button>
-  </div>`;
-}
-function nextWeek(){currentWeekIndex++;renderWeeklyView();}
-function prevWeek(){currentWeekIndex--;renderWeeklyView();}
-
-function renderDailyView(){
-  const all=currentPlan.schedule||[],pp=7,s=currentDayIndex*pp,e=s+pp,sub=all.slice(s,e);
-  tabD.classList.add('active');tabW.classList.remove('active');
-  let h=`<h3>📅 Days ${s+1}-${Math.min(e,all.length)}</h3>`;
-  h+=sub.map(d=>{
-    const c=d.phase.includes("Foundation")?"#43a047":d.phase.includes("Consolidation")?"#1e88e5":"#ef6c00";
-    const m=d.is_mock_day?`<div style="color:#c62828;">🧾 Mock: ${d.mock.hours}h + ${d.mock.analysis_hours}h analysis</div>`:'';
-    return `<div style="border-left:6px solid ${c};padding:10px;border-radius:8px;margin:10px 0;background:#fafafa;">
-      <b>${d.date}</b> — ${d.phase}<br>
-      📖 Theory: ${d.theory.topic} (${d.theory.hours}h)<br>
-      🧠 MCQ: ${d.mcq.topic} (${d.mcq.target_questions} Qs / ${d.mcq.hours}h)<br>
-      🔁 Recall (${d.recall.hours}h): ${d.recall.due_topics.join(', ')||'None'}<br>
-      ${m}
-    </div>`;
-  }).join('');
-  h+=`<div class="pagination">
-    <button class="secondary" onclick="prevDays()" ${currentDayIndex===0?'disabled':''}>⬅ Prev</button>
-    <span>Page ${currentDayIndex+1}/${Math.ceil(all.length/pp)}</span>
-    <button class="secondary" onclick="nextDays()" ${e>=all.length?'disabled':''}>Next ➡</button>
-  </div>`;
-  tabContent.innerHTML=h;
-}
-function nextDays(){currentDayIndex++;renderDailyView();}
-function prevDays(){currentDayIndex--;renderDailyView();}
-
 async function savePlan(){
   const name=prompt('Plan name:','My NEET SS Plan');if(!name)return;
-  const r=await fetch(`${API}/plans/save`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({name,data:currentPlan})});
+  const progress=localStorage.getItem('progressDays')||0;
+  const r=await fetch(`${API}/plans/save`,{
+    method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+    body:JSON.stringify({name,data:{...currentPlan,progress}})
+  });
   if(r.ok){toast('✅ Plan Saved');loadSavedPlans();}
 }
+
 async function openPlan(id){
   const r=await fetch(`${API}/plans/${id}`,{headers:{Authorization:`Bearer ${token}`}});
   if(!r.ok)return;
-  const d=await r.json();currentPlan=d;showPlan();toast('📖 Loaded Saved Plan');
+  const d=await r.json();currentPlan=d;showTab('planner');
+  summary.innerHTML=`<b>${d.meta.start_date}</b> → <b>${d.meta.exam_date}</b> | ${d.meta.days} days`;
+  planOutput.style.display='block';
+  toast('📖 Loaded Saved Plan');
 }
 async function downloadPlan(id,type){
   const r=await fetch(`${API}/plans/download/${id}?type=${type}`,{headers:{Authorization:`Bearer ${token}`}});
-  const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`StudyPlan_${id}.${type}`;a.click();
+  const b=await r.blob();const a=document.createElement('a');
+  a.href=URL.createObjectURL(b);a.download=`StudyPlan_${id}.${type}`;a.click();
 }
 async function deletePlan(id){
   if(!confirm('Delete this plan?'))return;
   const r=await fetch(`${API}/plans/delete/${id}`,{method:'DELETE',headers:{Authorization:`Bearer ${token}`}});
   if(r.ok){toast('🗑 Plan Deleted');loadSavedPlans();}
+}
+
+// PROGRESS TRACKER
+function updateProgress(){
+  const total=currentPlan?.meta?.days||100;
+  let done=+localStorage.getItem('progressDays')||0;
+  const pct=Math.min(100,Math.round((done/total)*100));
+  document.getElementById('progressContent').innerHTML=`
+    <p>Days Completed: ${done}/${total} (${pct}%)</p>
+    <progress value="${done}" max="${total}"></progress>
+    <br><button class="accent" onclick="incrementProgress()">+ Mark Day Complete</button>`;
+}
+function incrementProgress(){
+  let val=+localStorage.getItem('progressDays')||0;
+  localStorage.setItem('progressDays',++val);
+  updateProgress();
 }
 
 loadUser();
