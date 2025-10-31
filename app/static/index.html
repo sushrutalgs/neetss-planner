@@ -131,6 +131,8 @@
       <input id="hours" type="number" step="0.5" value="6">
       <label>Number of Mocks</label>
       <input id="mocks" type="number" min="0" value="4">
+      <label>Average Minutes per MCQ</label>
+      <input id="avg_mcq" type="number" step="0.1" value="2.5" min="1" max="5">
       <label>Plan Type</label>
       <select id="planType">
         <option value="full">Full Plan (Theory + MCQ + Recall + Mocks)</option>
@@ -220,7 +222,7 @@
       exam_date: exam.value,
       hours_per_day: parseFloat(hours.value),
       mocks: parseInt(mocks.value),
-      avg_minutes_per_mcq: 2.5,
+      avg_minutes_per_mcq: parseFloat(document.getElementById('avg_mcq').value),
       plan_type: planType.value
     };
     const res = await fetch(`${API}/plan`, {
@@ -245,7 +247,6 @@
       ${meta.mock_days_indexed ? `<p><b>Mocks:</b> ${meta.mock_days_indexed.length} planned</p>` : ""}
     `;
 
-    // build weekly summaries dynamically
     const weeks = data.weekly_summaries || [];
     document.getElementById('weeks').innerHTML = weeks.map(w => {
       const phaseColor =
@@ -305,6 +306,6 @@
 
   // INIT
   loadUser();
-</script>
+  </script>
 </body>
 </html>
