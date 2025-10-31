@@ -10,7 +10,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from .database import get_db
-from . import models
+from app import models
 
 SECRET_KEY = os.getenv("JWT_SECRET", "change-this-secret")
 ALGORITHM = "HS256"
