@@ -20,7 +20,8 @@ def generate_plan(req: PlanRequest, current=Depends(get_current_user)):
     """Generate a new study plan dynamically using build_schedule()."""
     if req.exam_date <= req.start_date:
         raise HTTPException(status_code=400, detail="exam_date must be after start_date.")
-    
+        print("📩 Incoming payload →", payload.dict())
+
     plan = build_schedule(
         start_date=req.start_date,
         exam_date=req.exam_date,
