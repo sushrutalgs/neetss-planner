@@ -13,7 +13,7 @@ from app.auth import (
     get_current_user,
 )
 
-router = APIRouter(prefix="/api", tags=["Users"])
+router = APIRouter(tags=["Users"])
 
 # ------------------------ REGISTER USER ------------------------
 
