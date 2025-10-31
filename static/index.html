@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>NEET SS Study Planner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; line-height: 1.5; }
+    label { display: block; margin: 8px 0 4px; }
+    input { padding: 8px; width: 320px; max-width: 100%; }
+    button { padding: 10px 16px; margin-top: 12px; cursor: pointer; }
+    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); margin-top: 24px; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 12px; }
+    .muted { color: #555; font-size: 0.9em; }
+    pre { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>NEET SS Surgical Group – Study Planner</h1>
+  <p class="muted">Rule of 3, interleaved Theory≠MCQ, 1–3–5–7–9 spaced recall, mocks @ D+7 & D−10.</p>
+
+  <div>
+    <label>Start Date</label>
+    <input id="start" type="date" required />
+    <label>Exam Date</label>
+    <input id="exam" type="date" required />
+    <label>Hours / Day</label>
+    <input id="hours" type="number" step="0.5" min="1" value="6" />
+    <label>Number of Mocks</label>
+    <input id="mocks" type="number" min="0" value="4" />
+    <label>Avg Minutes per MCQ (2.0–3.0)</label>
+    <input id="permcq" type="number" step="0.1" min="2.0" max="3.0" value="2.5" />
+    <br/>
+    <button onclick="makePlan()">Generate Plan</button>
+  </div>
+
+  <div id="summary"></div>
+  <div id="weeks" class="grid"></div>
+  <h3>Daily Plan (first 14 days)</h3>
+  <div id="days" class="grid"></div>
+
+  <script>
+    async function makePlan() {
+      const start = document.getElementById('start').value;
+      const exam = document.getElementById('exam').value;
+      const hours = parseFloat(document.getElementById('hours').value);
+      const mocks = parseInt(document.getElementById('mocks').value, 10);
+      const permcq = parseFloat(document.getElementById('permcq').value);
+
+      const payload = { start_date: start, exam_date: exam, hours_per_day: hours, mocks: mocks, avg_minutes_per_mcq: permcq };
+
+      const r = await fetch('/plan', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if (!r.ok) {
+        const t = await r.text();
+        alert('Error: ' + t);
+        return;
+      }
+      const data = await r.json();
+      render(data);
+    }
+
+    function render(data) {
+      const s = document.getElementById('summary');
+      s.innerHTML = `
+        <h2>Plan Summary</h2>
+        <p><strong>Start:</strong> ${data.meta.start_date} &nbsp; | &nbsp;
+           <strong>Exam:</strong> ${data.meta.exam_date} &nbsp; | &nbsp;
+           <strong>Days:</strong> ${data.meta.days} &nbsp; | &nbsp;
+           <strong>Hours/Day:</strong> ${data.meta.hours_per_day}</p>
+        <p class="muted">Mocks (index days): ${data.meta.mock_days_indexed.join(', ')}</p>
+      `;
+
+      const weeks = document.getElementById('weeks');
+      weeks.innerHTML = '';
+      data.weekly_summaries.forEach(w => {
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.innerHTML = `
+          <h3>Week ${w.week}</h3>
+          <div class="muted">${w.start_date} → ${w.end_date}</div>
+          <p><strong>Theory:</strong> ${w.theory_topics.join(', ')}</p>
+          <p><strong>MCQ:</strong> ${w.mcq_topics.join(', ')}</p>
+          <p><strong>Mocks:</strong> ${w.mocks}</p>
+          <ul class="muted">${w.suggestions.map(s=>`<li>${s}</li>`).join('')}</ul>
+        `;
+        weeks.appendChild(el);
+      });
+
+      const days = document.getElementById('days');
+      days.innerHTML = '';
+      data.schedule.slice(0, 14).forEach(d => {
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.innerHTML = `
+          <strong>${d.date}</strong> ${d.is_mock_day ? ' — <em>MOCK DAY</em>' : ''}<br/>
+          <span class="muted">Phase: ${d.phase}</span>
+          <p><strong>Theory:</strong> ${d.theory.topic} (${d.theory.minutes} min)</p>
+          <p><strong>MCQ:</strong> ${d.mcq.topic} (${d.mcq.minutes} min, target ≈ ${d.mcq.target_questions})</p>
+          <p><strong>Recall:</strong> ${d.recall.due_topics.length ? d.recall.due_topics.join(', ') : '—'} (${d.recall.minutes} min; 1–3–5–7–9)</p>
+          ${d.mock ? `<p><strong>Mock:</strong> ${d.mock.minutes} min + Analysis ${d.mock.analysis_minutes} min</p>` : ''}
+        `;
+        days.appendChild(el);
+      });
+    }
+  </script>
+</body>
+</html>
