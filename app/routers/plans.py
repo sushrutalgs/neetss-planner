@@ -11,7 +11,7 @@ from app.auth import get_current_user
 from app.planner import build_schedule
 from app.utils import plan_to_ics, plan_to_pdf
 
-router = APIRouter(prefix="/api", tags=["Plans"])
+router = APIRouter(tags=["Plans"])
 
 # ------------------------ GENERATE PLAN ------------------------
 
