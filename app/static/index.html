@@ -170,12 +170,12 @@
   /* ===== MAIN WRAPPER (prevents header/footer overlap) ===== */
   .main-outer {
     min-height: calc(100vh - var(--footer-h));
-    padding-top: clamp(90px, 14vh, 120px);
+    padding-top: clamp(90px, 14vh, 60px);
     padding-bottom: calc(var(--footer-h) + 24px);
     animation: fadeUp .5s .05s var(--ease-spring) both;
   }
   @media (max-width: 768px) {
-    .main-outer { padding-top: clamp(130px, 20vh, 160px); }
+    .main-outer { padding-top: clamp(100px, 20vh, 100px); }
   }
 
   .shell{max-width:1400px;margin:clamp(14px,2vw,22px) auto clamp(24px,3vh,36px);padding:0 clamp(12px,3.2vw,28px);}
@@ -235,25 +235,25 @@
   /* ===== APP ===== */
   #app{display:none}
 
-  .tabs{
-    margin-top:8px;display:flex;gap:clamp(8px,1.2vw,12px);flex-wrap:wrap;border-bottom:1px dashed var(--border);
-    padding:clamp(10px,1.4vw,14px) clamp(12px,2vw,18px);
-    background:linear-gradient(180deg,transparent,rgba(0,0,0,.02));
-    position: sticky; top: calc(var(--header-h) + 8px); z-index: 10;
-  }
-  .tab{
-    background:var(--chip);color:var(--text);border:1px solid var(--border);
-    padding:clamp(10px,1.6vw,14px) clamp(12px,2vw,16px);border-radius:999px;cursor:pointer;font-weight:900;font-size:var(--fs-sm);
-    transition:.18s, transform .06s, box-shadow .18s;
-    box-shadow: inset 0 1px 0 #ffffff, 0 4px 10px rgba(0,0,0,.04);
-  }
-  .tab:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(0,0,0,.08)}
-  .tab.active{
-    background:linear-gradient(180deg, color-mix(in oklab, var(--primary) 18%, #fff), #fff);
-    border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
-    color:#0b1424;
-    box-shadow: 0 10px 24px rgba(0, 122, 255, .16);
-  }
+  .tabs {
+  position: sticky;
+  top: clamp(90px, 12vh, 110px); /* header height, responsive */
+  z-index: 15;
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(8px, 1.2vw, 12px);
+  border-bottom: 1px dashed var(--border);
+  padding: clamp(10px, 1.4vw, 14px) clamp(12px, 2vw, 18px);
+  margin-top: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
+  backdrop-filter: blur(8px);
+}
+
+/* dark mode adjustment */
+:root.dark .tabs {
+  background: linear-gradient(180deg, rgba(15,23,42,0.8), rgba(15,23,42,0.4));
+}
+
 
   .content{margin-top:0;padding:clamp(12px,1.8vw,16px) clamp(14px,3.2vw,24px) clamp(24px,4vw,32px)}
 
