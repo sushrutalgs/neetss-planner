@@ -4,6 +4,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
 import os
+import sys
+import json
 
 # -------------------------------------------------------------------
 # Initialize FastAPI App
@@ -19,8 +21,11 @@ app = FastAPI(
 # -------------------------------------------------------------------
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    print("❌ Validation Error:", exc.errors())
-    return JSONResponse(status_code=400, content={"detail": exc.errors()})
+    error_details = exc.errors()
+    # Force immediate flush so Heroku shows it
+    print("❌ VALIDATION ERROR DETAILS →", json.dumps(error_details, indent=2), file=sys.stderr, flush=True)
+    return JSONResponse(status_code=400, content={"detail": error_details})
+
 
 # -------------------------------------------------------------------
 # CORS Middleware
