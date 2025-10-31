@@ -55,7 +55,7 @@ try:
 
     # Import API routers
     from app.routers import users, plans, progress
-
+    app.include_router(auth.router, prefix="/api", tags=["Auth"])
     app.include_router(users.router, prefix="/api", tags=["Users"])
     app.include_router(plans.router, prefix="/api", tags=["Plans"])
     app.include_router(progress.router, prefix="/api", tags=["Progress"])
