@@ -2,173 +2,188 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Sushruta LGS – AI NEET SS Study Planner</title>
+<title>Sushruta LGS — AI NEET SS Study Planner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 
 <style>
   :root {
-    --primary:#004c91;
-    --secondary:#0d47a1;
+    --primary:#004e92;
+    --secondary:#000428;
     --accent:#1abc9c;
     --danger:#c62828;
-    --bg:linear-gradient(120deg,#f8fafc,#eef2f3);
-    --text:#222;
-    --muted:#555;
-    --card-bg:#fff;
-    --shadow:0 8px 25px rgba(0,0,0,0.1);
+    --bg:linear-gradient(135deg,#f8fafc,#eef2f3);
+    --card-bg:rgba(255,255,255,0.7);
+    --shadow:0 8px 25px rgba(0,0,0,0.08);
+    --text:#1e293b;
+    --muted:#64748b;
   }
 
   *{box-sizing:border-box;}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;background:var(--bg);color:var(--text);overflow-x:hidden;}
+  body{
+    margin:0;
+    font-family:'Inter','Poppins',sans-serif;
+    color:var(--text);
+    background:var(--bg);
+    overflow-x:hidden;
+  }
 
   header{
-    background:var(--primary);
+    background:linear-gradient(135deg,var(--primary),var(--secondary));
     color:#fff;
-    padding:1.2rem 2rem;
+    padding:1.5rem 2rem;
     text-align:center;
-    border-bottom:3px solid var(--accent);
-    position:sticky;top:0;z-index:999;
+    position:sticky;top:0;z-index:10;
+    box-shadow:var(--shadow);
   }
-  header img{height:60px;position:absolute;left:1.2rem;top:0.8rem;}
-  h1{margin:0;font-size:2rem;font-weight:600;}
-  p.subtitle{opacity:0.8;margin:0.5rem 0 0;font-size:1rem;}
+  header img{height:60px;position:absolute;left:1.5rem;top:1rem;}
+  h1{margin:0;font-size:2rem;font-weight:700;}
+  p.subtitle{opacity:0.85;margin:0.4rem 0 0;font-size:1rem;font-weight:400;}
 
   main{
-    display:flex;
-    flex-wrap:wrap;
-    justify-content:center;
-    gap:1rem;
-    padding:2rem 1rem;
+    display:grid;
+    grid-template-columns:1fr 2fr;
+    gap:2rem;
+    padding:2rem;
   }
+  @media(max-width:900px){main{grid-template-columns:1fr;}}
 
-  .sidebar{
-    flex:1 1 300px;
-    max-width:380px;
+  .sidebar, .planner{
     background:var(--card-bg);
-    border-radius:14px;
-    box-shadow:var(--shadow);
-    padding:1.2rem;
-    animation:fadeIn 0.6s ease-in;
-    height:fit-content;
-  }
-
-  .planner{
-    flex:3 1 600px;
-    background:var(--card-bg);
-    border-radius:14px;
+    border-radius:16px;
+    backdrop-filter:blur(8px);
     box-shadow:var(--shadow);
     padding:1.5rem 2rem;
-    animation:slideIn 0.6s ease-in;
-    min-height:70vh;
+    animation:fadeIn 0.6s ease;
   }
 
-  input,select{
+  h2,h3{margin-top:0;}
+  .muted{color:var(--muted);}
+
+  /* Floating labels */
+  .input-group{position:relative;margin:1.2rem 0;}
+  .input-group input{
     width:100%;
-    padding:10px;
-    margin:0.4rem 0 1rem;
-    border:1px solid #ccc;
-    border-radius:8px;
+    padding:12px;
+    border:1px solid #d0d7de;
+    border-radius:10px;
     font-size:1rem;
+    background:transparent;
+    outline:none;
   }
+  .input-group label{
+    position:absolute;
+    left:14px;top:12px;
+    color:#777;
+    pointer-events:none;
+    transition:0.2s ease all;
+    background:var(--card-bg);
+    padding:0 4px;
+  }
+  .input-group input:focus + label,
+  .input-group input:valid + label{
+    top:-8px;left:10px;font-size:0.75rem;color:var(--primary);
+  }
+
   button{
-    background:var(--secondary);
-    color:#fff;
     border:none;
     border-radius:8px;
     padding:10px 16px;
     margin:5px;
     cursor:pointer;
-    transition:0.25s;
+    font-size:1rem;
+    transition:all 0.25s;
   }
-  button:hover{background:#1565c0;transform:translateY(-1px);}
-  .danger{background:var(--danger);}
-  .danger:hover{background:#b71c1c;}
-  .accent{background:var(--accent);}
-  .accent:hover{background:#16a085;}
-  
-  h2{margin-top:0;}
-  .muted{color:var(--muted);}
-  .plan-item{
-    background:#f8f9fa;
-    border-radius:8px;
-    padding:0.6rem 0.8rem;
-    display:flex;justify-content:space-between;align-items:center;
-    margin-bottom:0.5rem;
-    box-shadow:0 1px 3px rgba(0,0,0,0.06);
+  button.accent{
+    background:linear-gradient(135deg,#2563eb,#1d4ed8);
+    color:#fff;
+    box-shadow:0 2px 10px rgba(37,99,235,0.25);
   }
+  button.accent:hover{transform:translateY(-1px);filter:brightness(1.1);}
+  button.danger{background:var(--danger);color:#fff;}
+  button.danger:hover{background:#b71c1c;}
+  button.secondary{background:#e2e8f0;color:#1e293b;}
+  button.secondary:hover{background:#cbd5e1;}
 
-  #planOutput h2{margin-bottom:0.6rem;}
+  .plan-item{
+    background:rgba(255,255,255,0.8);
+    border-radius:12px;
+    display:flex;justify-content:space-between;align-items:center;
+    padding:0.8rem 1rem;margin-bottom:0.6rem;
+    transition:0.3s;
+  }
+  .plan-item:hover{transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,0.1);}
+
   .plan-summary{
     background:#eef7ff;
     border-left:5px solid var(--accent);
     border-radius:8px;
-    padding:1rem;
-    margin-bottom:1rem;
+    padding:1rem;margin-bottom:1rem;
   }
 
-  .tab-header{
-    display:flex;
-    justify-content:center;
-    gap:0.6rem;
-    margin:1rem 0;
-  }
-  .tab-header button{
-    background:#eee;color:#333;border:none;
-    border-radius:6px;padding:8px 16px;
-  }
-  .tab-header button.active{
-    background:var(--accent);
-    color:#fff;
-    font-weight:600;
-  }
+  .tab-header{display:flex;justify-content:center;gap:0.6rem;margin:1rem 0;}
+  .tab-header button{background:#e2e8f0;border:none;border-radius:6px;padding:8px 16px;}
+  .tab-header button.active{background:var(--accent);color:#fff;font-weight:600;}
   .pagination{text-align:center;margin-top:1rem;}
 
+  #toast{
+    position:fixed;bottom:20px;right:20px;
+    background:linear-gradient(135deg,#2563eb,#1d4ed8);
+    color:#fff;padding:12px 20px;border-radius:8px;
+    box-shadow:0 4px 10px rgba(0,0,0,0.2);
+    opacity:0;transform:translateY(20px);
+    transition:all 0.4s;
+    z-index:1000;
+  }
+  #toast.show{opacity:1;transform:translateY(0);}
   @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
-  @keyframes slideIn{from{opacity:0;transform:translateY(15px);}to{opacity:1;transform:translateY(0);}}
 </style>
 </head>
 
 <body>
 <header>
   <img src="/static/logo.png" alt="Sushruta LGS Logo"/>
-  <h1>Sushruta LGS – AI Study Planner</h1>
-  <p class="subtitle">Rule of 3 • Interleaved Learning • Spaced Recall • Timed Mocks</p>
+  <h1>Sushruta LGS — AI Study Planner</h1>
+  <p class="subtitle">Rule of 3 • Interleaved Learning • Smart Recall</p>
 </header>
 
 <main>
-  <!-- Sidebar for Auth + Saved Plans -->
+  <!-- Sidebar -->
   <aside class="sidebar" id="authPanel">
     <div id="loginArea">
-      <h2>Login</h2>
-      <input id="loginEmail" type="email" placeholder="Email" required/>
-      <input id="loginPassword" type="password" placeholder="Password" required/>
-      <button onclick="login()">Login</button>
-      <button class="accent" onclick="showRegister()">Register</button>
+      <h2>Welcome Back 👋</h2>
+      <div class="input-group"><input id="loginEmail" type="email" required><label>Email</label></div>
+      <div class="input-group"><input id="loginPassword" type="password" required><label>Password</label></div>
+      <button class="accent" onclick="login()">Login</button>
+      <button class="secondary" onclick="showRegister()">Register</button>
     </div>
+
     <div id="registerArea" style="display:none;">
       <h2>Create Account</h2>
-      <input id="regName" placeholder="Full Name" required/>
-      <input id="regEmail" type="email" placeholder="Email" required/>
-      <input id="regGoal" placeholder="Goal (e.g. Surgical Gastroenterology)"/>
-      <input id="regPassword" type="password" placeholder="Password" required/>
+      <div class="input-group"><input id="regName" required><label>Full Name</label></div>
+      <div class="input-group"><input id="regEmail" type="email" required><label>Email</label></div>
+      <div class="input-group"><input id="regGoal"><label>Goal (e.g. Surgical Gastroenterology)</label></div>
+      <div class="input-group"><input id="regPassword" type="password" required><label>Password</label></div>
       <button class="accent" onclick="register()">Register</button>
-      <button onclick="showLogin()">Back</button>
+      <button class="secondary" onclick="showLogin()">Back</button>
     </div>
+
     <div id="savedPlans" style="margin-top:2rem;"></div>
   </aside>
 
-  <!-- Planner Main -->
+  <!-- Planner -->
   <section class="planner" id="plannerArea" style="display:none;">
     <h2 id="welcomeMsg"></h2>
-    <button onclick="logout()">Logout</button>
+    <button class="secondary" onclick="logout()">Logout</button>
 
     <form id="planForm" onsubmit="event.preventDefault();makePlan();">
       <h3>🧭 Create Your Study Plan</h3>
-      <label>Start Date</label><input id="start" type="date" required>
-      <label>Exam Date</label><input id="exam" type="date" required>
-      <label>Study Hours / Day</label><input id="hours" type="number" step="0.5" value="6">
-      <label>Number of Mock Exams</label><input id="mocks" type="number" min="0" value="4">
-      <label>Average Minutes per MCQ</label><input id="avg_mcq" type="number" step="0.1" value="2.5" min="1" max="5">
+
+      <div class="input-group"><input id="start" type="date" required><label>Start Date</label></div>
+      <div class="input-group"><input id="exam" type="date" required><label>Exam Date</label></div>
+      <div class="input-group"><input id="hours" type="number" step="0.5" value="6" required><label>Study Hours / Day</label></div>
+      <div class="input-group"><input id="mocks" type="number" min="0" value="4" required><label>Number of Mock Exams</label></div>
+      <div class="input-group"><input id="avg_mcq" type="number" step="0.1" value="2.5" min="1" max="5" required><label>Average Minutes per MCQ</label></div>
+
       <button type="submit" class="accent">Generate Plan</button>
     </form>
 
@@ -181,10 +196,18 @@
   </section>
 </main>
 
+<div id="toast"></div>
+
 <script>
 const API='https://neetss-planner-735b64816561.herokuapp.com/api';
 let token=localStorage.getItem('token');
 let currentPlan=null,currentWeekIndex=0,currentDayIndex=0;
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
 
 function showLogin(){loginArea.style.display='block';registerArea.style.display='none';}
 function showRegister(){loginArea.style.display='none';registerArea.style.display='block';}
@@ -193,14 +216,15 @@ function logout(){localStorage.clear();location.reload();}
 async function login(){
   const res=await fetch(`${API}/login`,{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({email:loginEmail.value,password:loginPassword.value})});
-  if(!res.ok)return alert('Invalid credentials');
+  if(!res.ok)return toast('❌ Invalid credentials');
   const d=await res.json();token=d.access_token;localStorage.setItem('token',token);
-  loadUser();
+  loadUser();toast('✅ Logged in successfully');
 }
+
 async function register(){
   const b={name:regName.value,email:regEmail.value,password:regPassword.value,goal:regGoal.value};
   const r=await fetch(`${API}/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
-  if(r.ok){alert('Registered! Now login.');showLogin();}else alert('Error registering');
+  if(r.ok){toast('✅ Registered! Please login');showLogin();}else toast('❌ Registration failed');
 }
 
 async function loadUser(){
@@ -208,9 +232,8 @@ async function loadUser(){
   const r=await fetch(`${API}/me`,{headers:{Authorization:`Bearer ${token}`}});
   if(!r.ok)return;
   const u=await r.json();
-  document.getElementById('authPanel').style.display='block';
-  plannerArea.style.display='block';
-  welcomeMsg.textContent=`👋 Welcome, Dr. ${u.name}`;
+  authPanel.style.display='block';plannerArea.style.display='block';
+  welcomeMsg.textContent=`Welcome back, Dr. ${u.name} 👋`;
   loadSavedPlans();
 }
 
@@ -225,8 +248,8 @@ async function loadSavedPlans(){
     <div class="plan-item">
       <div><b>${p.name}</b><br><small>${new Date(p.created_at).toLocaleDateString()}</small></div>
       <div>
-        <button onclick="openPlan(${p.id})">Open</button>
-        <button onclick="downloadPlan(${p.id},'pdf')">PDF</button>
+        <button class="secondary" onclick="openPlan(${p.id})">Open</button>
+        <button class="accent" onclick="downloadPlan(${p.id},'pdf')">PDF</button>
         <button class="danger" onclick="deletePlan(${p.id})">🗑</button>
       </div>
     </div>`).join('');
@@ -237,8 +260,8 @@ async function makePlan(){
            hours_per_day:+hours.value,mocks:+mocks.value,
            avg_minutes_per_mcq:+avg_mcq.value};
   const r=await fetch(`${API}/plan`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(p)});
-  if(!r.ok)return alert('Error generating plan');
-  const d=await r.json();currentPlan=d;showPlan();
+  if(!r.ok)return toast('❌ Error generating plan');
+  const d=await r.json();currentPlan=d;showPlan();toast('✅ Plan Generated Successfully!');
 }
 
 function showPlan(){
@@ -267,12 +290,11 @@ function renderWeeklyView(){
     <p>🎯 Theory: ${cur.weekly_targets.theory_hr} h | 🧠 MCQs: ${cur.weekly_targets.approx_mcqs} | 🔁 Recall: ${cur.weekly_targets.recall_hr} h</p>
   </div>
   <div class="pagination">
-    <button onclick="prevWeek()" ${currentWeekIndex===0?'disabled':''}>⬅ Prev</button>
+    <button class="secondary" onclick="prevWeek()" ${currentWeekIndex===0?'disabled':''}>⬅ Prev</button>
     <span>Week ${currentWeekIndex+1}/${w.length}</span>
-    <button onclick="nextWeek()" ${currentWeekIndex===w.length-1?'disabled':''}>Next ➡</button>
+    <button class="secondary" onclick="nextWeek()" ${currentWeekIndex===w.length-1?'disabled':''}>Next ➡</button>
   </div>`;
 }
-
 function nextWeek(){currentWeekIndex++;renderWeeklyView();}
 function prevWeek(){currentWeekIndex--;renderWeeklyView();}
 
@@ -292,25 +314,24 @@ function renderDailyView(){
     </div>`;
   }).join('');
   h+=`<div class="pagination">
-    <button onclick="prevDays()" ${currentDayIndex===0?'disabled':''}>⬅ Prev</button>
+    <button class="secondary" onclick="prevDays()" ${currentDayIndex===0?'disabled':''}>⬅ Prev</button>
     <span>Page ${currentDayIndex+1}/${Math.ceil(all.length/pp)}</span>
-    <button onclick="nextDays()" ${e>=all.length?'disabled':''}>Next ➡</button>
+    <button class="secondary" onclick="nextDays()" ${e>=all.length?'disabled':''}>Next ➡</button>
   </div>`;
   tabContent.innerHTML=h;
 }
 function nextDays(){currentDayIndex++;renderDailyView();}
 function prevDays(){currentDayIndex--;renderDailyView();}
 
-// SAVE / DOWNLOAD / DELETE
 async function savePlan(){
   const name=prompt('Plan name:','My NEET SS Plan');if(!name)return;
   const r=await fetch(`${API}/plans/save`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({name,data:currentPlan})});
-  if(r.ok){alert('✅ Plan saved');loadSavedPlans();}
+  if(r.ok){toast('✅ Plan Saved');loadSavedPlans();}
 }
 async function openPlan(id){
   const r=await fetch(`${API}/plans/${id}`,{headers:{Authorization:`Bearer ${token}`}});
   if(!r.ok)return;
-  const d=await r.json();currentPlan=d;showPlan();
+  const d=await r.json();currentPlan=d;showPlan();toast('📖 Loaded Saved Plan');
 }
 async function downloadPlan(id,type){
   const r=await fetch(`${API}/plans/download/${id}?type=${type}`,{headers:{Authorization:`Bearer ${token}`}});
@@ -319,7 +340,7 @@ async function downloadPlan(id,type){
 async function deletePlan(id){
   if(!confirm('Delete this plan?'))return;
   const r=await fetch(`${API}/plans/delete/${id}`,{method:'DELETE',headers:{Authorization:`Bearer ${token}`}});
-  if(r.ok){alert('🗑 Deleted');loadSavedPlans();}
+  if(r.ok){toast('🗑 Plan Deleted');loadSavedPlans();}
 }
 
 loadUser();
