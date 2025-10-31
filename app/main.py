@@ -35,13 +35,15 @@ if os.path.exists(static_dir):
 # Routers
 # -------------------------------------------------------------------
 try:
-    from app.routers import auth, planner, plans
+    from app.routers import auth, plans, progress, users
     app.include_router(auth.router, prefix="/api", tags=["Auth"])
-    app.include_router(planner.router, prefix="/api", tags=["Planner"])
     app.include_router(plans.router, prefix="/api", tags=["Plans"])
+    app.include_router(progress.router, prefix="/api", tags=["Progress"])
+    app.include_router(users.router, prefix="/api", tags=["Users"])
     print("✅ Routers loaded successfully.")
 except Exception as e:
     print(f"⚠️ Warning: Routers not loaded → {e}")
+
 
 # -------------------------------------------------------------------
 # Serve Frontend (index.html at root)
