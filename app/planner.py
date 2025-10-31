@@ -3,21 +3,22 @@ from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 from math import floor
 from typing import List, Dict, Any, Tuple
-from .priorities import PRIORITY_DISTRIBUTION, ROTATION_ORDER
+from .priorities import PRIORITY_DISTRIBUTION, ROTATION_ORDER  # kept for future weighting / rotation tuning
 
 IST = ZoneInfo("Asia/Kolkata")
-
 
 # ---------------------------- Utility Functions ---------------------------- #
 
 def daterange(start: date, end: date) -> List[date]:
-    """Return inclusive date list."""
+    """Return inclusive list of dates [start, end]."""
     days = (end - start).days
     return [start + timedelta(days=i) for i in range(days + 1)]
 
 
 def even_spacing(total_days: int, count: int, offset_start: int, offset_end: int) -> List[int]:
-    """Return day indices (0-based) for evenly spaced items within [offset_start, total_days-1-offset_end]."""
+    """
+    Return evenly spaced 0-based indices within [offset_start, total_days-1-offset_end].
+    """
     span = max(0, total_days - offset_start - offset_end)
     if count <= 0 or span <= 0:
         return []
@@ -27,38 +28,29 @@ def even_spacing(total_days: int, count: int, offset_start: int, offset_end: int
     return [round(offset_start + i * step) for i in range(count)]
 
 
-def minutes_split(total_minutes: int, phase: str) -> Tuple[int, int, int]:
-    """Return (theory_min, mcq_min, recall_min) according to the phase."""
-    if phase == "initial70":
-        return round(total_minutes*0.35), round(total_minutes*0.45), total_minutes - round(total_minutes*0.35) - round(total_minutes*0.45)
-    if phase == "middle":
-        return round(total_minutes*0.25), round(total_minutes*0.55), total_minutes - round(total_minutes*0.25) - round(total_minutes*0.55)
-    # revision phase
-    return round(total_minutes*0.10), round(total_minutes*0.40), total_minutes - round(total_minutes*0.10) - round(total_minutes*0.40)
-
-
 def estimate_mcq_count(mcq_minutes: int, per_q_minutes: float = 2.5) -> int:
     return max(0, floor(mcq_minutes / per_q_minutes))
 
 
 def spaced_recall_offsets() -> List[int]:
-    """1–3–5–7–9 day recall pattern."""
+    """1–3–5–7–9 day recall pattern from learning day."""
     return [1, 3, 5, 7, 9]
 
 
 def build_rotation_series(n_days: int) -> List[str]:
     """Rotate topics through ROTATION_ORDER for n_days."""
     out = []
-    idx = 0
     L = len(ROTATION_ORDER)
-    for _ in range(n_days):
-        out.append(ROTATION_ORDER[idx % L])
-        idx += 1
+    for i in range(n_days):
+        out.append(ROTATION_ORDER[i % L])
     return out
 
 
 def make_interleaved(theory_today: str, day_index: int, rotation: List[str]) -> str:
-    """Ensure MCQ topic ≠ theory topic, pick from earlier theory topic."""
+    """
+    Ensure MCQ topic ≠ today's theory topic.
+    Prefer theory from 1–2 days prior; otherwise next available in ROTATION_ORDER.
+    """
     if day_index >= 1:
         prev = rotation[day_index - 1]
         if prev != theory_today:
@@ -67,24 +59,62 @@ def make_interleaved(theory_today: str, day_index: int, rotation: List[str]) -> 
         prev2 = rotation[day_index - 2]
         if prev2 != theory_today:
             return prev2
-    # fallback
     for t in ROTATION_ORDER:
         if t != theory_today:
             return t
-    return theory_today
+    return theory_today  # degenerate fallback
 
 
 def recall_for_day(day_index: int, learned_map: Dict[int, str]) -> List[str]:
-    """Return recall topics due today based on 1–3–5–7–9 rule."""
+    """Return topics due for recall based on 1–3–5–7–9 offsets."""
     due = []
+    offsets = set(spaced_recall_offsets())
     for learned_day, topic in learned_map.items():
-        if day_index - learned_day in spaced_recall_offsets():
+        if (day_index - learned_day) in offsets:
             due.append(topic)
     return due
 
 
+# ---------------------------- Phase Allocation ----------------------------- #
+
+# Internal phase keys -> label strings used by the frontend
+PHASE_LABELS = {
+    "initial70": "📗 Foundation Phase",
+    "middle":    "📘 Consolidation Phase",
+    "revision":  "📙 Revision Phase",
+}
+
+def minutes_split(total_minutes: int, phase_key: str) -> Tuple[int, int, int]:
+    """
+    Return (theory_min, mcq_min, recall_min) for a given phase.
+      - initial70: 35/45/20
+      - middle:    25/55/20
+      - revision:  10/40/50
+    """
+    if phase_key == "initial70":
+        t = round(total_minutes * 0.35)
+        m = round(total_minutes * 0.45)
+        r = total_minutes - t - m
+        return t, m, r
+    if phase_key == "middle":
+        t = round(total_minutes * 0.25)
+        m = round(total_minutes * 0.55)
+        r = total_minutes - t - m
+        return t, m, r
+    # revision
+    t = round(total_minutes * 0.10)
+    m = round(total_minutes * 0.40)
+    r = total_minutes - t - m
+    return t, m, r
+
+
 def allocate_phases(days_total: int, last15: int = 15) -> Dict[str, Tuple[int, int]]:
-    """Allocate study days into initial70, middle, revision."""
+    """
+    Return index ranges (start_idx, end_idx inclusive) for phases:
+      - initial70 (≈70% of pre-revision days)
+      - middle (the rest of pre-revision)
+      - revision (last 15 days)
+    """
     rev_start = max(0, days_total - last15)
     pre_rev = rev_start
     initial_len = round(pre_rev * 0.70)
@@ -93,7 +123,7 @@ def allocate_phases(days_total: int, last15: int = 15) -> Dict[str, Tuple[int, i
     return {
         "initial70": (0, max(-1, initial_len - 1)),
         "middle": (middle_start, middle_end) if middle_start <= middle_end else (-1, -2),
-        "revision": (rev_start, days_total - 1)
+        "revision": (rev_start, days_total - 1),
     }
 
 
@@ -101,37 +131,74 @@ def allocate_phases(days_total: int, last15: int = 15) -> Dict[str, Tuple[int, i
 
 def insert_mocks(total_days: int, requested_mocks: int) -> List[int]:
     """
-    Place first mock after 7 days and last mock ~10 days before exam.
-    Ensure ≥3-day gap between any two mocks.
+    Place first mock @ +7 days, last mock @ ~-10 days; distribute remaining evenly.
+    Ensure ≥3-day gap between mocks and clamp within bounds.
     """
     if total_days < 20 or requested_mocks <= 0:
         return []
 
     first = 7
-    last = max(0, total_days - 11)
-
+    last = max(0, total_days - 11)  # last mock day index (0-based)
     if requested_mocks == 1:
         return [first]
 
     mids = max(0, requested_mocks - 2)
     middle_positions = even_spacing(total_days, mids, first + 5, total_days - 1 - last)
 
-    # Combine
-    raw_mocks = [first] + middle_positions + [last]
-    mock_days = []
-
-    for d in sorted(raw_mocks):
+    raw = sorted([first] + middle_positions + [last])
+    mock_days: List[int] = []
+    for d in raw:
         if not mock_days or d - mock_days[-1] >= 3:
             mock_days.append(d)
         else:
-            mock_days.append(mock_days[-1] + 3)  # push forward to maintain gap
+            # push forward to maintain spacing
+            mock_days.append(mock_days[-1] + 3)
 
-    # Ensure last mock within limit
+    # clamp last to <= total_days - 11 (i.e., >= 10 days before exam)
     mock_days = [min(d, total_days - 11) for d in mock_days]
-    return sorted(set(mock_days))
+    return sorted(set(x for x in mock_days if 0 <= x < total_days))
 
 
 # ---------------------------- Schedule Builder ---------------------------- #
+
+FOUNDATION_QUOTES = [
+    "Clarity first, speed later.",
+    "Strong basics make brilliant surgeons.",
+]
+CONSOLIDATION_QUOTES = [
+    "Accuracy improves when analysis precedes speed.",
+    "Your recall is your surgical reflex — refine it.",
+]
+REVISION_QUOTES = [
+    "Mocks don’t judge you — they train you.",
+    "Less reading, more reinforcement.",
+]
+
+FOCUS_NOTES = {
+    "📗 Foundation Phase": [
+        "Focus on conceptual clarity and fundamentals.",
+        "Spend more time on Bailey, Sabiston & Schwartz theory reading.",
+        "Mark weak topics for future spaced recall.",
+    ],
+    "📘 Consolidation Phase": [
+        "Increase MCQ intensity; analyze reasoning errors thoroughly.",
+        "Revise recall notes before each MCQ session.",
+        "Build endurance with mixed-topic timed practice.",
+    ],
+    "📙 Revision Phase": [
+        "Prioritize rapid revision over new topics.",
+        "Simulate exam conditions; full analysis next day.",
+        "Focus on the weakest 20% topics relentlessly.",
+    ],
+}
+
+def pick_quote(phase_label: str, week_num: int) -> str:
+    if "Foundation" in phase_label:
+        return FOUNDATION_QUOTES[week_num % len(FOUNDATION_QUOTES)]
+    if "Consolidation" in phase_label:
+        return CONSOLIDATION_QUOTES[week_num % len(CONSOLIDATION_QUOTES)]
+    return REVISION_QUOTES[week_num % len(REVISION_QUOTES)]
+
 
 def build_schedule(
     start_date: date,
@@ -141,14 +208,20 @@ def build_schedule(
     avg_mcq_minutes: float = 2.5
 ) -> Dict[str, Any]:
 
+    if exam_date <= start_date:
+        raise ValueError("exam_date must be after start_date.")
+
     days = daterange(start_date, exam_date)
     total_days = len(days)
-    phases = allocate_phases(total_days, last15=15)
 
+    # Phase index ranges (internal keys)
+    phase_ranges = allocate_phases(total_days, last15=15)
+
+    # Topic rotation & recall mapping
     rotation = build_rotation_series(total_days)
     learned_map: Dict[int, str] = {}
 
-    # mock placement
+    # Mock placement
     mock_days = insert_mocks(total_days, mocks)
     mock_set = set(mock_days)
 
@@ -156,89 +229,94 @@ def build_schedule(
     out_days: List[Dict[str, Any]] = []
 
     for i, d in enumerate(days):
-        # Determine phase
-        if phases["revision"][0] <= i <= phases["revision"][1]:
-            phase = "revision"
-        elif phases["initial70"][0] <= i <= phases["initial70"][1]:
-            phase = "initial70"
+        # Decide internal phase key
+        if phase_ranges["revision"][0] <= i <= phase_ranges["revision"][1]:
+            phase_key = "revision"
+        elif phase_ranges["initial70"][0] <= i <= phase_ranges["initial70"][1]:
+            phase_key = "initial70"
         else:
-            phase = "middle"
+            phase_key = "middle"
 
-        theory_min, mcq_min, recall_min = minutes_split(per_day_minutes, phase)
+        # Human-friendly label for frontend
+        phase_label = PHASE_LABELS[phase_key]
+
+        theory_min, mcq_min, recall_min = minutes_split(per_day_minutes, phase_key)
 
         theory_topic = rotation[i]
         mcq_topic = make_interleaved(theory_topic, i, rotation)
         recalls = recall_for_day(i, learned_map)
         mcq_target = estimate_mcq_count(mcq_min, avg_mcq_minutes)
+
+        # record theory learned today for future recall
         learned_map[i] = theory_topic
 
-        day_plan = {
+        day_plan: Dict[str, Any] = {
             "date": d.isoformat(),
-            "phase": phase,
+            "phase": phase_label,               # << frontend-ready (includes emoji)
             "is_mock_day": i in mock_set,
             "theory": {"topic": theory_topic, "minutes": theory_min},
-            "mcq": {"topic": mcq_topic, "minutes": mcq_min, "target_questions": mcq_target, "avg_minutes_per_mcq": avg_mcq_minutes},
-            "recall": {"due_topics": recalls, "minutes": recall_min, "scheme": "1-3-5-7-9 days"}
+            "mcq": {
+                "topic": mcq_topic,
+                "minutes": mcq_min,
+                "target_questions": mcq_target,
+                "avg_minutes_per_mcq": avg_mcq_minutes
+            },
+            "recall": {"due_topics": recalls, "minutes": recall_min, "scheme": "1-3-5-7-9 days"},
         }
 
         if i in mock_set:
-            # Mock day → only mock + recall
-            mock_minutes = min(per_day_minutes, 150)
-            analysis_minutes = per_day_minutes - mock_minutes
+            # Mock day → dedicate to mock + analysis + recall only
+            mock_minutes = min(per_day_minutes, 150)  # typical 150-min full test
+            analysis_minutes = max(0, per_day_minutes - mock_minutes)
             day_plan["mock"] = {
                 "minutes": mock_minutes,
                 "analysis_minutes": analysis_minutes,
-                "notes": "Full-length mock; analyze 20 wrong answers; tag weak topics."
+                "notes": "Full-length mock; analyze ~20 wrong answers; tag weak topics."
             }
             day_plan["theory"]["minutes"] = 0
             day_plan["mcq"]["minutes"] = 0
-            day_plan["recall"]["minutes"] = max(30, recall_min)
+            # keep recall strong on mock day
+            day_plan["recall"]["minutes"] = max(30, day_plan["recall"]["minutes"])
 
         out_days.append(day_plan)
 
-    # ---------------------- Weekly Summaries ---------------------- #
+    # ---------------------- Weekly Summaries (richer) ---------------------- #
     weeks: List[Dict[str, Any]] = []
-    for w_start in range(0, total_days, 7):
+    total_weeks = (total_days + 6) // 7
+    for w_idx, w_start in enumerate(range(0, total_days, 7), start=1):
         w_end = min(total_days, w_start + 7)
         block = out_days[w_start:w_end]
-        topics = [d["theory"]["topic"] for d in block if d["theory"]["minutes"] > 0]
-        mcq_topics = [d["mcq"]["topic"] for d in block if d["mcq"]["minutes"] > 0]
-        mocks_in_week = sum(1 for d in block if d["is_mock_day"])
-        week_num = len(weeks) + 1
 
-        # Determine weekly phase type
-        total_weeks = (total_days + 6) // 7
-        if week_num <= total_weeks / 3:
-            phase_name = "📗 Foundation Phase"
-            tips = [
-                "Focus on conceptual clarity and understanding of fundamentals.",
-                "Spend more time on theory reading (Bailey, Sabiston, Schwartz).",
-                "Mark difficult topics for spaced recall and future reinforcement."
-            ]
-        elif week_num <= (2 * total_weeks) / 3:
-            phase_name = "📘 Consolidation Phase"
-            tips = [
-                "Increase MCQ practice frequency and analyze reasoning errors.",
-                "Revise recall notes before solving daily MCQs.",
-                "Build speed and exam endurance through mixed topic practice."
-            ]
-        else:
-            phase_name = "📙 Revision Phase"
-            tips = [
-                "Focus on rapid review and mock analysis.",
-                "Simulate real exam conditions once a week.",
-                "Avoid new topics; reinforce weak areas identified earlier."
-            ]
+        # phase label for the week (use first day in the block)
+        phase_label = block[0]["phase"]
+        mocks_in_week = sum(1 for d in block if d["is_mock_day"])
+
+        # minutes & approx MCQs
+        theory_min = sum(d["theory"]["minutes"] for d in block)
+        mcq_min = sum(d["mcq"]["minutes"] for d in block)
+        recall_min = sum(d["recall"]["minutes"] for d in block)
+        approx_mcqs = estimate_mcq_count(mcq_min, avg_mcq_minutes)
+
+        # topic lists (non-zero durations only to avoid mock-day zeros)
+        theory_topics = [d["theory"]["topic"] for d in block if d["theory"]["minutes"] > 0]
+        mcq_topics = [d["mcq"]["topic"] for d in block if d["mcq"]["minutes"] > 0]
 
         weeks.append({
-            "week": week_num,
+            "week": w_idx,
+            "phase": phase_label,
             "start_date": block[0]["date"],
             "end_date": block[-1]["date"],
-            "phase": phase_name,
-            "theory_topics": topics,
+            "theory_topics": theory_topics,
             "mcq_topics": mcq_topics,
             "mocks": mocks_in_week,
-            "suggestions": tips
+            "focus_notes": FOCUS_NOTES.get(phase_label, []),
+            "quote": pick_quote(phase_label, w_idx),
+            "weekly_targets": {
+                "theory_min": theory_min,
+                "mcq_min": mcq_min,
+                "recall_min": recall_min,
+                "approx_mcqs": approx_mcqs
+            }
         })
 
     return {
