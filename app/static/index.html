@@ -151,131 +151,160 @@
   </section>
 
   <script>
-    const API = 'https://neetss-planner-735b64816561.herokuapp.com/api';
-    let token = localStorage.getItem('token');
-    let currentPlan = null;
+  const API = 'https://neetss-planner-735b64816561.herokuapp.com/api';
+  let token = localStorage.getItem('token');
+  let currentPlan = null;
 
-    // --- Auth UI ---
-    function showLogin() {
-      document.getElementById('registerArea').style.display = 'none';
-      document.getElementById('loginArea').style.display = 'block';
-    }
-    function showRegister() {
-      document.getElementById('loginArea').style.display = 'none';
-      document.getElementById('registerArea').style.display = 'block';
-    }
+  // --- Auth UI ---
+  function showLogin() {
+    document.getElementById('registerArea').style.display = 'none';
+    document.getElementById('loginArea').style.display = 'block';
+  }
+  function showRegister() {
+    document.getElementById('loginArea').style.display = 'none';
+    document.getElementById('registerArea').style.display = 'block';
+  }
+  function logout() {
+    localStorage.removeItem('token');
+    location.reload();
+  }
 
-    function logout() {
-      localStorage.removeItem('token');
-      location.reload();
-    }
-
-    // --- Auth Logic ---
-    async function login(email, password) {
-      const res = await fetch(`${API}/login`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({email, password})
-      });
-      if (!res.ok) return alert('Invalid credentials');
-      const data = await res.json();
-      token = data.access_token;
-      localStorage.setItem('token', token);
-      loadUser();
-    }
-
-    async function register(name, email, password, goal) {
-      const res = await fetch(`${API}/register`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({name, email, password, goal})
-      });
-      if (res.ok) { alert('Registered! Now login.'); showLogin(); }
-      else alert('Error registering user');
-    }
-
-    async function loadUser() {
-      if (!token) { showLogin(); return; }
-      const res = await fetch(`${API}/me`, { headers: {Authorization: `Bearer ${token}`}});
-      if (!res.ok) { showLogin(); return; }
-      const user = await res.json();
-      document.getElementById('authArea').style.display = 'none';
-      document.getElementById('plannerArea').style.display = 'block';
-      document.getElementById('welcomeMsg').textContent = `👋 Welcome, Dr. ${user.name} (${user.goal || 'General Surgery'})`;
-    }
-
-    // --- Form Handlers ---
-    document.getElementById('loginForm').onsubmit = (e) => {
-      e.preventDefault();
-      login(loginEmail.value, loginPassword.value);
-    };
-    document.getElementById('registerForm').onsubmit = (e) => {
-      e.preventDefault();
-      register(regName.value, regEmail.value, regPassword.value, regGoal.value);
-    };
-
-    // --- Plan Generation ---
-    async function makePlan() {
-      const payload = {
-        start_date: start.value,
-        exam_date: exam.value,
-        hours_per_day: parseFloat(hours.value),
-        mocks: parseInt(mocks.value),
-        avg_minutes_per_mcq: 2.5,
-        plan_type: planType.value
-      };
-      const res = await fetch(`${API}/plan`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) return alert('Error generating plan');
-      const data = await res.json();
-      currentPlan = data;
-      showPlan(data);
-    }
-
-    function showPlan(data) {
-      document.getElementById('planOutput').style.display = 'block';
-      document.getElementById('summary').innerHTML = `
-        <p><b>Start:</b> ${data.meta.start_date} &nbsp; <b>Exam:</b> ${data.meta.exam_date}</p>
-        <p><b>Days:</b> ${data.meta.days} | <b>Hours/day:</b> ${data.meta.hours_per_day}</p>
-      `;
-      document.getElementById('weeks').innerHTML = data.weekly_summaries.map(w =>
-        `<p><b>Week ${w.week} (${w.phase})</b><br>${w.start_date} → ${w.end_date}<br>${w.quote}</p>`
-      ).join('');
-      document.getElementById('actions').innerHTML = `
-        <button onclick="savePlan()">💾 Save Plan</button>
-        <button onclick="downloadPlan('pdf')">⬇️ PDF</button>
-        <button onclick="downloadPlan('ics')">📅 Calendar</button>
-      `;
-    }
-
-    async function savePlan() {
-      const name = prompt('Enter name for this plan:', 'My NEET SS Plan');
-      if (!name) return;
-      const res = await fetch(`${API}/plans/save`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json', Authorization: `Bearer ${token}`},
-        body: JSON.stringify({name, data: currentPlan})
-      });
-      if (res.ok) alert('✅ Plan saved!');
-      else alert('Error saving plan');
-    }
-
-    async function downloadPlan(type) {
-      const res = await fetch(`${API}/plans/download/1?type=${type}`, {
-        headers: {Authorization: `Bearer ${token}`}
-      });
-      const blob = await res.blob();
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `NEETSS_StudyPlan.${type}`;
-      link.click();
-    }
-
-    // INIT
+  // --- Auth Logic ---
+  async function login(email, password) {
+    const res = await fetch(`${API}/login`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({email, password})
+    });
+    if (!res.ok) return alert('Invalid credentials');
+    const data = await res.json();
+    token = data.access_token;
+    localStorage.setItem('token', token);
     loadUser();
-  </script>
+  }
+
+  async function register(name, email, password, goal) {
+    const res = await fetch(`${API}/register`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({name, email, password, goal})
+    });
+    if (res.ok) { alert('Registered! Now login.'); showLogin(); }
+    else alert('Error registering user');
+  }
+
+  async function loadUser() {
+    if (!token) { showLogin(); return; }
+    const res = await fetch(`${API}/me`, { headers: {Authorization: `Bearer ${token}`}});
+    if (!res.ok) { showLogin(); return; }
+    const user = await res.json();
+    document.getElementById('authArea').style.display = 'none';
+    document.getElementById('plannerArea').style.display = 'block';
+    document.getElementById('welcomeMsg').textContent = `👋 Welcome, Dr. ${user.name} (${user.goal || 'General Surgery'})`;
+  }
+
+  // --- Form Handlers ---
+  document.getElementById('loginForm').onsubmit = (e) => {
+    e.preventDefault();
+    login(loginEmail.value, loginPassword.value);
+  };
+  document.getElementById('registerForm').onsubmit = (e) => {
+    e.preventDefault();
+    register(regName.value, regEmail.value, regPassword.value, regGoal.value);
+  };
+
+  // --- Plan Generation ---
+  async function makePlan() {
+    const payload = {
+      start_date: start.value,
+      exam_date: exam.value,
+      hours_per_day: parseFloat(hours.value),
+      mocks: parseInt(mocks.value),
+      avg_mcq_minutes: 2.5,
+      plan_type: planType.value
+    };
+    const res = await fetch(`${API}/plan`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) return alert('Error generating plan');
+    const data = await res.json();
+    currentPlan = data;
+    showPlan(data);
+  }
+
+  // --- Plan Display ---
+  function showPlan(data) {
+    document.getElementById('planOutput').style.display = 'block';
+
+    const meta = data.meta || {};
+    document.getElementById('summary').innerHTML = `
+      <p><b>Start:</b> ${meta.start_date} &nbsp; <b>Exam:</b> ${meta.exam_date}</p>
+      <p><b>Days:</b> ${meta.days} | <b>Hours/day:</b> ${meta.hours_per_day}</p>
+      ${meta.mock_days_indexed ? `<p><b>Mocks:</b> ${meta.mock_days_indexed.length} planned</p>` : ""}
+    `;
+
+    // build weekly summaries dynamically
+    const weeks = data.weekly_summaries || [];
+    document.getElementById('weeks').innerHTML = weeks.map(w => {
+      const phaseColor =
+        w.phase.includes("Foundation") ? "var(--foundation)" :
+        w.phase.includes("Consolidation") ? "var(--consolidation)" :
+        w.phase.includes("Revision") ? "var(--revision)" : "#444";
+
+      const notes = (w.focus_notes || []).map(n => `<li>${n}</li>`).join('');
+      const targets = w.weekly_targets || {};
+      const mocks = w.mocks ? `<p>🧠 <b>${w.mocks}</b> Mock${w.mocks > 1 ? 's' : ''} this week</p>` : '';
+
+      return `
+        <div style="border-left: 6px solid ${phaseColor}; padding-left: 10px; margin-bottom: 1rem;">
+          <h3 style="color:${phaseColor}; margin-bottom:0;">Week ${w.week} — ${w.phase}</h3>
+          <p class="muted">${w.start_date} → ${w.end_date}</p>
+          <p><em>${w.quote}</em></p>
+          ${mocks}
+          ${notes ? `<ul>${notes}</ul>` : ""}
+          <p>
+            🎯 <b>Theory:</b> ${targets.theory_min || 0} min |
+            <b>MCQs:</b> ${targets.approx_mcqs || 0} |
+            <b>Recall:</b> ${targets.recall_min || 0} min
+          </p>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('actions').innerHTML = `
+      <button onclick="savePlan()">💾 Save Plan</button>
+      <button onclick="downloadPlan('pdf')">⬇️ PDF</button>
+      <button onclick="downloadPlan('ics')">📅 Calendar</button>
+    `;
+  }
+
+  async function savePlan() {
+    const name = prompt('Enter name for this plan:', 'My NEET SS Plan');
+    if (!name) return;
+    const res = await fetch(`${API}/plans/save`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', Authorization: `Bearer ${token}`},
+      body: JSON.stringify({name, data: currentPlan})
+    });
+    if (res.ok) alert('✅ Plan saved!');
+    else alert('Error saving plan');
+  }
+
+  async function downloadPlan(type) {
+    const res = await fetch(`${API}/plans/download/1?type=${type}`, {
+      headers: {Authorization: `Bearer ${token}`}
+    });
+    const blob = await res.blob();
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `NEETSS_StudyPlan.${type}`;
+    link.click();
+  }
+
+  // INIT
+  loadUser();
+</script>
 </body>
 </html>
