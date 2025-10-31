@@ -6,101 +6,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
     :root {
-      --primary: #004c91;
-      --secondary: #1976d2;
-      --accent: #00897b;
-      --danger: #c62828;
-      --bg: #f9fafc;
-      --card-bg: #fff;
-      --text: #222;
-      --muted: #666;
-      --shadow: 0 2px 6px rgba(0,0,0,0.08);
+      --primary:#004c91; --secondary:#1976d2; --accent:#00897b;
+      --danger:#c62828; --bg:#f9fafc; --card-bg:#fff;
+      --text:#222; --muted:#666; --shadow:0 2px 6px rgba(0,0,0,0.08);
     }
-
-    body {
-      font-family: "Segoe UI", Roboto, sans-serif;
-      background-color: var(--bg);
-      color: var(--text);
-      margin: 0;
-      padding: 0 1rem 3rem;
-    }
-
-    header {
-      background: var(--primary);
-      color: #fff;
-      text-align: center;
-      padding: 1rem;
-      border-radius: 0 0 12px 12px;
-      box-shadow: var(--shadow);
-      position: relative;
-    }
-    header img {
-      height: 60px;
-      position: absolute;
-      left: 1rem;
-      top: 0.8rem;
-    }
-    h1 { margin: 0; font-size: 1.8rem; }
-    p { margin: 0.2rem 0; }
-
-    form, .card {
-      background: var(--card-bg);
-      padding: 1rem;
-      border-radius: 10px;
-      box-shadow: var(--shadow);
-      margin: 1rem auto;
-      max-width: 650px;
-    }
-
-    input, select {
-      width: 100%;
-      padding: 8px;
-      margin: 0.4rem 0 1rem;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 1rem;
-    }
-
-    button {
-      background: var(--secondary);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 10px 18px;
-      margin: 5px;
-      cursor: pointer;
-    }
-    button:hover { background: #0d47a1; }
-
-    #loginArea, #registerArea, #plannerArea { display: none; }
-    .muted { color: var(--muted); font-size: 0.9rem; }
-
-    .tab-header { text-align: center; margin-bottom: 1rem; }
-    .tab-header button {
-      border-radius: 6px;
-      margin: 0 5px;
-      padding: 8px 14px;
-      background: #ddd;
-      color: #333;
-    }
-    .tab-header button.active {
-      background: var(--accent);
-      color: #fff;
-    }
-
-    .pagination {
-      text-align: center;
-      margin-top: 1rem;
-    }
-    .plan-item {
-      display: flex;
-      justify-content: space-between;
-      background: #fff;
-      margin: 6px 0;
-      padding: 8px;
-      border-radius: 6px;
-      box-shadow: var(--shadow);
-    }
+    body{font-family:"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:0 1rem 3rem;}
+    header{background:var(--primary);color:#fff;text-align:center;padding:1rem;border-radius:0 0 12px 12px;box-shadow:var(--shadow);position:relative;}
+    header img{height:60px;position:absolute;left:1rem;top:0.8rem;}
+    h1{margin:0;font-size:1.8rem;}p{margin:0.2rem 0;}
+    form,.card{background:var(--card-bg);padding:1rem;border-radius:10px;box-shadow:var(--shadow);margin:1rem auto;max-width:650px;}
+    input,select{width:100%;padding:8px;margin:0.4rem 0 1rem;border:1px solid #ccc;border-radius:6px;font-size:1rem;}
+    button{background:var(--secondary);color:white;border:none;border-radius:8px;padding:10px 18px;margin:5px;cursor:pointer;}
+    button:hover{background:#0d47a1;}
+    #loginArea,#registerArea,#plannerArea{display:none;}
+    .muted{color:var(--muted);font-size:0.9rem;}
+    .tab-header{text-align:center;margin-bottom:1rem;}
+    .tab-header button{border-radius:6px;margin:0 5px;padding:8px 14px;background:#ddd;color:#333;}
+    .tab-header button.active{background:var(--accent);color:#fff;}
+    .pagination{text-align:center;margin-top:1rem;}
+    .plan-item{display:flex;justify-content:space-between;background:#fff;margin:6px 0;padding:8px;border-radius:6px;box-shadow:var(--shadow);}
   </style>
 </head>
 
@@ -111,7 +35,6 @@
   <p>Rule of 3 | Interleaved Theory ≠ MCQ | 1–3–5–7–9 Recall | Mocks @ D+7 & D−10</p>
 </header>
 
-<!-- LOGIN / REGISTER -->
 <section id="authArea">
   <div id="loginArea">
     <form id="loginForm">
@@ -122,7 +45,6 @@
       <button type="button" onclick="showRegister()">Register</button>
     </form>
   </div>
-
   <div id="registerArea">
     <form id="registerForm">
       <h2>🧾 Register</h2>
@@ -136,7 +58,6 @@
   </div>
 </section>
 
-<!-- PLANNER SECTION -->
 <section id="plannerArea">
   <div class="card">
     <h2 id="welcomeMsg"></h2>
@@ -145,16 +66,11 @@
 
   <form id="planForm" onsubmit="event.preventDefault(); makePlan();">
     <h2>🧭 Create a Study Plan</h2>
-    <label>Start Date</label>
-    <input id="start" type="date" required>
-    <label>Exam Date</label>
-    <input id="exam" type="date" required>
-    <label>Hours / Day</label>
-    <input id="hours" type="number" step="0.5" value="6">
-    <label>Number of Mocks</label>
-    <input id="mocks" type="number" min="0" value="4">
-    <label>Average Minutes per MCQ</label>
-    <input id="avg_mcq" type="number" step="0.1" value="2.5" min="1" max="5">
+    <label>Start Date</label><input id="start" type="date" required>
+    <label>Exam Date</label><input id="exam" type="date" required>
+    <label>Hours / Day</label><input id="hours" type="number" step="0.5" value="6">
+    <label>Number of Mocks</label><input id="mocks" type="number" min="0" value="4">
+    <label>Average Minutes per MCQ</label><input id="avg_mcq" type="number" step="0.1" value="2.5" min="1" max="5">
     <label>Plan Type</label>
     <select id="planType">
       <option value="full">Full Plan (Theory + MCQ + Recall + Mocks)</option>
@@ -171,83 +87,56 @@
   <div id="planOutput" class="card" style="display:none;">
     <h2>📘 Plan Summary</h2>
     <div id="summary"></div>
-    <div id="weeks"></div>
-    <div id="actions"></div>
+    <div id="tabs"></div>
+    <div id="planActions" style="text-align:center;margin-top:1rem;"></div>
   </div>
 </section>
 
 <script>
-const API = 'https://neetss-planner-735b64816561.herokuapp.com/api';
-let token = localStorage.getItem('token');
-let currentPlan = null;
-let currentWeekIndex = 0;
-let currentDayIndex = 0;
+const API='https://neetss-planner-735b64816561.herokuapp.com/api';
+let token=localStorage.getItem('token');
+let currentPlan=null,currentWeekIndex=0,currentDayIndex=0;
 
-// UI Switches
-function showLogin() {
-  document.getElementById('loginArea').style.display = 'block';
-  document.getElementById('registerArea').style.display = 'none';
-}
-function showRegister() {
-  document.getElementById('loginArea').style.display = 'none';
-  document.getElementById('registerArea').style.display = 'block';
-}
-function logout() {
-  localStorage.removeItem('token');
-  location.reload();
-}
+// UI
+function showLogin(){loginArea.style.display='block';registerArea.style.display='none';}
+function showRegister(){loginArea.style.display='none';registerArea.style.display='block';}
+function logout(){localStorage.removeItem('token');localStorage.removeItem('last_plan_id');location.reload();}
 
 // AUTH
-document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+loginForm.onsubmit=async e=>{
   e.preventDefault();
-  const email = loginEmail.value, password = loginPassword.value;
-  const res = await fetch(`${API}/login`, {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({email,password})
-  });
-  if(!res.ok) return alert('Invalid credentials');
-  const data = await res.json();
-  token = data.access_token;
-  localStorage.setItem('token',token);
-  loadUser();
-});
-
-document.getElementById('registerForm').addEventListener('submit', async (e)=>{
+  const res=await fetch(`${API}/login`,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({email:loginEmail.value,password:loginPassword.value})});
+  if(!res.ok)return alert('Invalid credentials');
+  const d=await res.json();token=d.access_token;localStorage.setItem('token',token);loadUser();
+};
+registerForm.onsubmit=async e=>{
   e.preventDefault();
-  const body = {
-    name: regName.value,
-    email: regEmail.value,
-    password: regPassword.value,
-    goal: regGoal.value
-  };
-  const res = await fetch(`${API}/register`, {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(body)
-  });
-  if(res.ok){ alert('Registered! Now login.'); showLogin(); }
-  else alert('Error registering');
-});
+  const b={name:regName.value,email:regEmail.value,password:regPassword.value,goal:regGoal.value};
+  const r=await fetch(`${API}/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+  if(r.ok){alert('Registered! Now login.');showLogin();}else alert('Error registering');
+};
 
-// USER LOAD
-async function loadUser() {
-  if (!token) { showLogin(); return; }
-  const res = await fetch(`${API}/me`, { headers:{Authorization:`Bearer ${token}`}});
-  if(!res.ok){ showLogin(); return; }
-  const user = await res.json();
-  document.getElementById('authArea').style.display='none';
-  document.getElementById('plannerArea').style.display='block';
-  document.getElementById('welcomeMsg').textContent=`👋 Welcome, Dr. ${user.name}`;
+// USER
+async function loadUser(){
+  if(!token){showLogin();return;}
+  const r=await fetch(`${API}/me`,{headers:{Authorization:`Bearer ${token}`}});
+  if(!r.ok){showLogin();return;}
+  const u=await r.json();
+  authArea.style.display='none';plannerArea.style.display='block';
+  welcomeMsg.textContent=`👋 Welcome, Dr. ${u.name}`;
   loadSavedPlans();
 }
 
-// SAVED PLANS
-async function loadSavedPlans() {
-  const res = await fetch(`${API}/plans`, { headers:{Authorization:`Bearer ${token}`}});
-  if(!res.ok) return;
-  const plans = await res.json();
-  const container = document.getElementById('savedPlans');
-  if(!plans.length){ container.innerHTML="<p class='muted'>No saved plans yet.</p>"; return; }
-  container.innerHTML = `<h3>💾 Saved Plans</h3>` + plans.map(p=>`
+// PLANS
+async function loadSavedPlans(){
+  const r=await fetch(`${API}/plans`,{headers:{Authorization:`Bearer ${token}`}});
+  if(!r.ok)return;
+  const plans=await r.json();
+  const c=document.getElementById('savedPlans');
+  if(!plans.length){c.innerHTML="<p class='muted'>No saved plans yet.</p>";return;}
+  plans.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  c.innerHTML='<h3>💾 My Saved Plans</h3>'+plans.map(p=>`
     <div class="plan-item">
       <div><b>${p.name}</b><br><small>${new Date(p.created_at).toLocaleDateString()}</small></div>
       <div>
@@ -256,112 +145,106 @@ async function loadSavedPlans() {
         <button onclick="deletePlan(${p.id})" style="background:var(--danger)">Delete</button>
       </div>
     </div>`).join('');
+  const lastId=localStorage.getItem('last_plan_id');
+  if(lastId){openPlan(lastId,true);}
+  else openPlan(plans[0].id,true);
 }
 
-// GENERATE PLAN
+async function openPlan(id,isAuto=false){
+  const r=await fetch(`${API}/plans/${id}`,{headers:{Authorization:`Bearer ${token}`}});
+  if(!r.ok)return;
+  const d=await r.json();
+  currentPlan=d;currentWeekIndex=0;currentDayIndex=0;
+  localStorage.setItem('last_plan_id',id);
+  showPlan();
+  if(!isAuto)alert('📘 Plan opened');
+}
+
+// CREATE PLAN
 async function makePlan(){
-  const payload = {
-    start_date:start.value,
-    exam_date:exam.value,
-    hours_per_day:parseFloat(hours.value),
-    mocks:parseInt(mocks.value),
-    avg_minutes_per_mcq:parseFloat(avg_mcq.value),
-    plan_type:planType.value
-  };
-  const res = await fetch(`${API}/plan`,{
-    method:'POST',
-    headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-    body:JSON.stringify(payload)
-  });
-  if(!res.ok) return alert('Error generating plan');
-  const data = await res.json();
-  currentPlan=data; currentWeekIndex=0; currentDayIndex=0;
-  renderPlanTabs(); renderWeeklyView();
+  const p={start_date:start.value,exam_date:exam.value,
+    hours_per_day:+hours.value,mocks:+mocks.value,
+    avg_minutes_per_mcq:+avg_mcq.value,plan_type:planType.value};
+  const r=await fetch(`${API}/plan`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(p)});
+  if(!r.ok)return alert('Error generating plan');
+  const d=await r.json();currentPlan=d;currentWeekIndex=0;currentDayIndex=0;
+  showPlan();
   document.getElementById('planOutput').style.display='block';
 }
 
-// PLAN TABS
-function renderPlanTabs(){
-  document.getElementById('planOutput').innerHTML = `
-    <div class="tab-header">
-      <button id="tab-weekly" class="active" onclick="renderWeeklyView()">📆 Weekly</button>
-      <button id="tab-daily" onclick="renderDailyView()">🗓 Daily</button>
-    </div>
-    <div id="tab-content" class="plan-content"></div>`;
+// RENDER
+function showPlan(){
+  const meta=currentPlan.meta||{};
+  summary.innerHTML=`<p><b>${meta.start_date}</b> → <b>${meta.exam_date}</b> | ${meta.days} days | ${meta.hours_per_day} h/day | ${meta.mocks||0} mocks</p>`;
+  renderTabs();renderWeeklyView();
+  planActions.innerHTML=`<button onclick="savePlan()">💾 Save</button>`;
+  planOutput.style.display='block';
 }
-
-// WEEKLY
+function renderTabs(){
+  tabs.innerHTML=`<div class="tab-header">
+    <button id="tabW" class="active" onclick="renderWeeklyView()">📆 Weekly</button>
+    <button id="tabD" onclick="renderDailyView()">🗓 Daily</button>
+  </div><div id="tabContent"></div>`;
+}
 function renderWeeklyView(){
-  const weeks=currentPlan.weekly_summaries||[];
-  const w=weeks[currentWeekIndex];
-  if(!w)return;
-  document.getElementById('tab-weekly').classList.add('active');
-  document.getElementById('tab-daily').classList.remove('active');
-  const color=w.phase.includes("Foundation")?"#43a047":w.phase.includes("Consolidation")?"#1e88e5":"#ef6c00";
-  const html=`
-    <div style="border-left:5px solid ${color};padding-left:10px;">
-      <h3>${w.phase} — Week ${w.week}</h3>
-      <p><b>${w.start_date}</b> → <b>${w.end_date}</b></p>
-      <p><em>${w.quote}</em></p>
-      <ul>${w.focus_notes.map(n=>`<li>${n}</li>`).join('')}</ul>
-      <p>🎯 Theory: ${w.weekly_targets.theory_min} min |
-         🧠 MCQs: ${w.weekly_targets.approx_mcqs} |
-         🔁 Recall: ${w.weekly_targets.recall_min} min</p>
-    </div>
-    <div class="pagination">
-      <button onclick="prevWeek()" ${currentWeekIndex===0?'disabled':''}>⬅ Prev</button>
-      <span>Week ${currentWeekIndex+1}/${weeks.length}</span>
-      <button onclick="nextWeek()" ${currentWeekIndex===weeks.length-1?'disabled':''}>Next ➡</button>
-    </div>`;
-  document.getElementById('tab-content').innerHTML=html;
+  const w=currentPlan.weekly_summaries||[];const cur=w[currentWeekIndex];if(!cur)return;
+  tabW.classList.add('active');tabD.classList.remove('active');
+  const c=cur.phase.includes("Foundation")?"#43a047":cur.phase.includes("Consolidation")?"#1e88e5":"#ef6c00";
+  tabContent.innerHTML=`<div style="border-left:5px solid ${c};padding-left:10px;">
+    <h3>${cur.phase} — Week ${cur.week}</h3>
+    <p><b>${cur.start_date}</b> → <b>${cur.end_date}</b></p>
+    <ul>${cur.focus_notes.map(n=>`<li>${n}</li>`).join('')}</ul>
+    <p>🎯 Theory: ${cur.weekly_targets.theory_min} | 🧠 MCQs: ${cur.weekly_targets.approx_mcqs} | 🔁 Recall: ${cur.weekly_targets.recall_min}</p>
+  </div>
+  <div class="pagination">
+    <button onclick="prevWeek()" ${currentWeekIndex===0?'disabled':''}>⬅ Prev</button>
+    <span>Week ${currentWeekIndex+1}/${w.length}</span>
+    <button onclick="nextWeek()" ${currentWeekIndex===w.length-1?'disabled':''}>Next ➡</button>
+  </div>`;
 }
 function nextWeek(){currentWeekIndex++;renderWeeklyView();}
 function prevWeek(){currentWeekIndex--;renderWeeklyView();}
-
-// DAILY
 function renderDailyView(){
-  const all=currentPlan.schedule||[];
-  const perPage=7; const start=currentDayIndex*perPage; const end=start+perPage;
-  const subset=all.slice(start,end);
-  document.getElementById('tab-daily').classList.add('active');
-  document.getElementById('tab-weekly').classList.remove('active');
-  let html=`<h3>📅 Daily Schedule (Days ${start+1}-${Math.min(end,all.length)})</h3>`;
-  html+=subset.map(d=>{
+  const all=currentPlan.schedule||[],pp=7,s=currentDayIndex*pp,e=s+pp,sub=all.slice(s,e);
+  tabD.classList.add('active');tabW.classList.remove('active');
+  let h=`<h3>📅 Daily Schedule (Days ${s+1}-${Math.min(e,all.length)})</h3>`;
+  h+=sub.map(d=>{
     const c=d.phase.includes("Foundation")?"#43a047":d.phase.includes("Consolidation")?"#1e88e5":"#ef6c00";
-    const mock=d.is_mock_day?`<div style="color:#c62828;">🧾 Mock: ${d.mock.minutes}m test + ${d.mock.analysis_minutes}m analysis<br><em>${d.mock.notes}</em></div>`:"";
+    const m=d.is_mock_day?`<div style="color:#c62828;">🧾 Mock ${d.mock.minutes}m + ${d.mock.analysis_minutes}m analysis</div>`:'';
     return `<div style="border:1px solid #ddd;border-left:5px solid ${c};border-radius:6px;margin:10px;padding:8px;">
       <b>${d.date}</b> — ${d.phase}<br>
-      📖 <b>Theory:</b> ${d.theory.topic} (${d.theory.minutes} min)<br>
-      🧠 <b>MCQ:</b> ${d.mcq.topic} (${d.mcq.target_questions} Qs / ${d.mcq.minutes} min)<br>
-      🔁 <b>Recall:</b> ${d.recall.minutes} min (${d.recall.due_topics.join(', ')||'None'})<br>
-      ${mock}
-    </div>`;
+      ${d.theory?`📖 <b>Theory:</b> ${d.theory.topic} (${d.theory.minutes}m)<br>`:''}
+      ${d.mcq?`🧠 <b>MCQ:</b> ${d.mcq.topic} (${d.mcq.target_questions} Qs / ${d.mcq.minutes}m)<br>`:''}
+      ${d.recall?`🔁 <b>Recall:</b> ${d.recall.minutes}m (${d.recall.due_topics.join(', ')||'None'})<br>`:''}
+      ${m}</div>`;
   }).join('');
-  html+=`<div class="pagination">
-      <button onclick="prevDays()" ${currentDayIndex===0?'disabled':''}>⬅ Prev</button>
-      <span>Page ${currentDayIndex+1}/${Math.ceil(all.length/perPage)}</span>
-      <button onclick="nextDays()" ${end>=all.length?'disabled':''}>Next ➡</button>
-    </div>`;
-  document.getElementById('tab-content').innerHTML=html;
+  h+=`<div class="pagination">
+    <button onclick="prevDays()" ${currentDayIndex===0?'disabled':''}>⬅ Prev</button>
+    <span>Page ${currentDayIndex+1}/${Math.ceil(all.length/pp)}</span>
+    <button onclick="nextDays()" ${e>=all.length?'disabled':''}>Next ➡</button>
+  </div>`;
+  tabContent.innerHTML=h;
 }
 function nextDays(){currentDayIndex++;renderDailyView();}
 function prevDays(){currentDayIndex--;renderDailyView();}
 
-// DOWNLOAD & DELETE
+// SAVE / DOWNLOAD / DELETE
+async function savePlan(){
+  const name=prompt('Plan name:','My NEET SS Plan');
+  if(!name)return;
+  const r=await fetch(`${API}/plans/save`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({name,data:currentPlan})});
+  if(r.ok){alert('✅ Saved');loadSavedPlans();}
+}
 async function downloadPlan(id,type){
-  const res=await fetch(`${API}/plans/download/${id}?type=${type}`,{headers:{Authorization:`Bearer ${token}`}});
-  const blob=await res.blob();
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=`StudyPlan_${id}.${type}`; a.click();
+  const r=await fetch(`${API}/plans/download/${id}?type=${type}`,{headers:{Authorization:`Bearer ${token}`}});
+  const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`StudyPlan_${id}.${type}`;a.click();
 }
 async function deletePlan(id){
   if(!confirm('Delete this plan?'))return;
-  const res=await fetch(`${API}/plans/delete/${id}`,{method:'DELETE',headers:{Authorization:`Bearer ${token}`}});
-  if(res.ok){alert('Deleted');loadSavedPlans();}
+  const r=await fetch(`${API}/plans/delete/${id}`,{method:'DELETE',headers:{Authorization:`Bearer ${token}`}});
+  if(r.ok){alert('🗑 Deleted');loadSavedPlans();}
 }
 
-// INIT
 loadUser();
 </script>
 </body>
