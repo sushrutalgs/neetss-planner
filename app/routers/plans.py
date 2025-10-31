@@ -25,7 +25,7 @@ def generate_plan(req: PlanRequest, current=Depends(get_current_user)):
         exam_date=req.exam_date,
         hours_per_day=req.hours_per_day,
         mocks=req.mocks,
-        avg_mcq_minutes=req.avg_minutes_per_mcq,
+        avg_minutes_per_mcq=req.avg_minutes_per_mcq,
         plan_type=req.plan_type,
     )
 
