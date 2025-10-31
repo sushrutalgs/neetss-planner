@@ -10,7 +10,7 @@ from app.auth import get_current_user
 from app.planner import build_schedule
 from app.utils import plan_to_ics, plan_to_pdf
 
-router = APIRouter(tags=["Plans"])
+router = APIRouter(prefix="/api", tags=["Plans"])
 
 # ------------------------ GENERATE PLAN ------------------------
 
@@ -20,76 +20,65 @@ def generate_plan(req: PlanRequest, current=Depends(get_current_user)):
     if req.exam_date <= req.start_date:
         raise HTTPException(status_code=400, detail="exam_date must be after start_date.")
 
+    # Build the complete plan
     plan = build_schedule(
         start_date=req.start_date,
         exam_date=req.exam_date,
         hours_per_day=req.hours_per_day,
         mocks=req.mocks,
-        avg_minutes_per_mcq=req.avg_minutes_per_mcq,
+        avg_mcq_minutes=req.avg_minutes_per_mcq,
         plan_type=req.plan_type,
     )
 
     # ---------------- FILTER PLAN CONTENT BY TYPE ---------------- #
     plan_type = (req.plan_type or "full").lower()
-
     if plan_type != "full":
         schedule = plan.get("schedule", [])
         filtered_schedule = []
 
         for day in schedule:
-            day_copy = day.copy()
+            d = day.copy()
 
-            # Theory Only
             if plan_type == "theory":
-                day_copy["mcq"] = None
-                day_copy["recall"] = None
-                if not day_copy.get("is_mock_day"):
-                    day_copy["mock"] = None
+                d["mcq"], d["recall"] = None, None
+                if not d.get("is_mock_day"):
+                    d["mock"] = None
 
-            # MCQ Only
             elif plan_type == "mcq":
-                day_copy["theory"] = None
-                day_copy["recall"] = None
-                if not day_copy.get("is_mock_day"):
-                    day_copy["mock"] = None
+                d["theory"], d["recall"] = None, None
+                if not d.get("is_mock_day"):
+                    d["mock"] = None
 
-            # Revision Only
             elif plan_type == "revision":
-                day_copy["theory"] = None
-                day_copy["mcq"] = None
-                if not day_copy.get("is_mock_day"):
-                    day_copy["mock"] = None
+                d["theory"], d["mcq"] = None, None
+                if not d.get("is_mock_day"):
+                    d["mock"] = None
 
-            # Mock Only → keep only mock days
             elif plan_type == "mock":
-                if not day_copy.get("is_mock_day"):
+                if not d.get("is_mock_day"):
                     continue
-                day_copy["theory"] = None
-                day_copy["mcq"] = None
-                day_copy["recall"] = None
+                d["theory"], d["mcq"], d["recall"] = None, None, None
 
-            filtered_schedule.append(day_copy)
+            filtered_schedule.append(d)
 
         plan["schedule"] = filtered_schedule
 
         # Adjust weekly summaries
-        weekly_summaries = plan.get("weekly_summaries", [])
-        for w in weekly_summaries:
-            targets = w.get("weekly_targets", {})
+        for w in plan.get("weekly_summaries", []):
+            t = w.get("weekly_targets", {})
             if plan_type == "theory":
-                targets["approx_mcqs"] = 0
-                targets["recall_min"] = 0
+                t["approx_mcqs"] = 0
+                t["recall_min"] = 0
             elif plan_type == "mcq":
-                targets["theory_min"] = 0
-                targets["recall_min"] = 0
+                t["theory_min"] = 0
+                t["recall_min"] = 0
             elif plan_type == "revision":
-                targets["theory_min"] = 0
-                targets["approx_mcqs"] = 0
+                t["theory_min"] = 0
+                t["approx_mcqs"] = 0
             elif plan_type == "mock":
-                targets["theory_min"] = 0
-                targets["approx_mcqs"] = 0
-                targets["recall_min"] = 0
-        plan["weekly_summaries"] = weekly_summaries
+                t["theory_min"] = 0
+                t["approx_mcqs"] = 0
+                t["recall_min"] = 0
 
     return plan
 
@@ -117,15 +106,15 @@ def save_plan(payload: SavePlanRequest, db: Session = Depends(get_db), current=D
 @router.get("/plans/list", response_model=List[PlanListItem])
 def list_plans(db: Session = Depends(get_db), current=Depends(get_current_user)):
     """List all saved plans for the current user."""
-    items = (
+    plans = (
         db.query(models.Plan)
         .filter(models.Plan.user_id == current.id)
         .order_by(models.Plan.created_at.desc())
         .all()
     )
     return [
-        PlanListItem(id=i.id, name=i.name, created_at=i.created_at.isoformat())
-        for i in items
+        PlanListItem(id=p.id, name=p.name, created_at=p.created_at.isoformat())
+        for p in plans
     ]
 
 
@@ -161,7 +150,7 @@ def delete_plan(plan_id: int, db: Session = Depends(get_db), current=Depends(get
     return {"deleted": True}
 
 
-# ------------------------ DOWNLOAD PLAN (ICS/PDF) ------------------------
+# ------------------------ DOWNLOAD PLAN ------------------------
 
 @router.get("/plans/download/{plan_id}")
 def download_plan(
@@ -181,15 +170,15 @@ def download_plan(
 
     if type == "ics":
         content = plan_to_ics(plan.data_json)
-        return Response(
-            content,
-            media_type="text/calendar",
-            headers={"Content-Disposition": f'attachment; filename="NEETSS_Plan_{plan_id}.ics"'}
-        )
+        media_type = "text/calendar"
+        ext = "ics"
     else:
         content = plan_to_pdf(plan.data_json)
-        return Response(
-            content,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="NEETSS_Plan_{plan_id}.pdf"'}
-        )
+        media_type = "application/pdf"
+        ext = "pdf"
+
+    return Response(
+        content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="NEETSS_Plan_{plan_id}.{ext}"'}
+    )
