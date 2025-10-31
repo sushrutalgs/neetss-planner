@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 import os
 
 # -------------------------------------------------------------------
@@ -14,7 +15,7 @@ app = FastAPI(
 )
 
 # -------------------------------------------------------------------
-# Global Validation Error Handler
+# Global Validation Error Handler (Debugging 400s)
 # -------------------------------------------------------------------
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -26,7 +27,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 # -------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Later restrict to your frontend domain, e.g. ["https://neetssplanner.in"]
+    allow_origins=["*"],  # TODO: Restrict later to your frontend domain (e.g. ["https://neetssplanner.in"])
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,6 +39,8 @@ app.add_middleware(
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+else:
+    print("⚠️ Static directory not found. Frontend may not load correctly.")
 
 # -------------------------------------------------------------------
 # Database Initialization
@@ -60,7 +63,7 @@ except Exception as e:
 # Routers Registration
 # -------------------------------------------------------------------
 try:
-    # Import all API routers
+    # Import routers
     from app.routers import users, plans, progress
 
     app.include_router(users.router, prefix="/api", tags=["Users"])
@@ -87,6 +90,7 @@ def serve_frontend():
 # -------------------------------------------------------------------
 @app.get("/health")
 def health_check():
+    """Simple health check for uptime monitors"""
     return {"ok": True, "message": "Planner API is healthy and online."}
 
 # -------------------------------------------------------------------
@@ -94,4 +98,5 @@ def health_check():
 # -------------------------------------------------------------------
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port)
