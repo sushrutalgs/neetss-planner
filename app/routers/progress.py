@@ -8,7 +8,7 @@ from app import models
 from app.schemas import ProgressUpdate
 from app.auth import get_current_user
 
-router = APIRouter(prefix="/api", tags=["Progress"])
+router = APIRouter(tags=["Progress"])
 
 # ------------------------ GET PROGRESS ------------------------
 
