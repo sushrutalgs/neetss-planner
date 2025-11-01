@@ -5,7 +5,7 @@ from app.auth import get_current_user  # adjust path if different
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
-@router.get("/stats")
+@router.get("/admin/stats")
 def get_admin_stats(db: Session = Depends(database.get_db), user=Depends(get_current_user)):
     # Restrict to admin (you)
     if user.email != "sushrutalgs@gmail.com":
