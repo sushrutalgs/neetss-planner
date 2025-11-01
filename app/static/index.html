@@ -1035,12 +1035,9 @@ function donut(label, percent, color){
 async function saveProgressServer() {
   if (!currentPlan || !currentPlanId) return;
   try {
-    const payload = { 
-      plan_id: Number(currentPlanId),  // ✅ must be integer
-      progress: progress               // ✅ not progress_json
-    };
+    const payload = { progress: progress }; // ✅ backend expects this field name
 
-    const r = await fetch(`${API}/plans/progress/save`, {
+    const r = await fetch(`${API}/plans/progress/${Number(currentPlanId)}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1067,19 +1064,14 @@ function scheduleAutoSaveToServer() {
 async function loadServerProgress() {
   if (!currentPlanId) return;
   try {
-    let r = await fetch(`${API}/plans/progress/get?plan_id=${currentPlanId}`, {
+    const r = await fetch(`${API}/plans/progress/${Number(currentPlanId)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-
-    if (!r.ok)
-      r = await fetch(`${API}/plans/${currentPlanId}/progress`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
 
     if (!r.ok) return;
 
     const data = await r.json();
-    if (data && data.progress) {  // ✅ corrected key
+    if (data && data.progress) { // ✅ confirmed backend field
       progress = { ...progress, ...data.progress };
       saveLocalProgress();
       renderDaily();
