@@ -69,12 +69,13 @@ except Exception as e:
 # -------------------------------------------------------------------
 try:
     # Import routers
-    from app.routers import users, plans, progress
+    from app.routers import users, plans, progress, admin
 
     app.include_router(users.router, prefix="/api", tags=["Users"])
     app.include_router(plans.router, prefix="/api", tags=["Plans"])
     app.include_router(progress.router, prefix="/api", tags=["Progress"])
-
+    app.include_router(admin.router)  # ✅ new line
+    
     print("✅ Routers loaded successfully.")
 except Exception as e:
     print(f"⚠️ Warning: Routers not loaded → {e}")
