@@ -91,6 +91,13 @@ def serve_frontend():
         return FileResponse(index_path)
     return {"message": "NEET SS Planner backend running. Frontend not found."}
 
+@app.get("/admin")
+def serve_admin_dashboard():
+    """Serve private admin dashboard"""
+    admin_path = os.path.join(static_dir, "admin.html")
+    if os.path.exists(admin_path):
+        return FileResponse(admin_path)
+    return {"message": "Admin dashboard not found."}
 # -------------------------------------------------------------------
 # Health Check Endpoint
 # -------------------------------------------------------------------
