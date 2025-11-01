@@ -1031,38 +1031,65 @@ function donut(label, percent, color){
 }
 
 /* ==================== SERVER PROGRESS SYNC (kept) ==================== */
-async function saveProgressServer(){
-  if(!currentPlan) return;
-  try{
-    const payload = { plan_id: currentPlanId, progress_json: progress };
+/* ----------- Save Progress to Server ----------- */
+async function saveProgressServer() {
+  if (!currentPlan || !currentPlanId) return;
+  try {
+    const payload = { 
+      plan_id: Number(currentPlanId),  // ✅ must be integer
+      progress: progress               // ✅ not progress_json
+    };
+
     const r = await fetch(`${API}/plans/progress/save`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`},
-      body:JSON.stringify(payload)
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
     });
-    if(!r.ok) throw 0;
-  }catch{}
-}
-function scheduleAutoSaveToServer(){
-  if(!debouncedSaveToServer){
-    debouncedSaveToServer = debounce(saveProgressServer, 1000);
+
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    console.log('✅ Progress saved to server');
+  } catch (err) {
+    console.warn('⚠️ Progress save failed:', err);
   }
+}
+
+/* ----------- Debounced Auto-Save ----------- */
+function scheduleAutoSaveToServer() {
+  if (!debouncedSaveToServer)
+    debouncedSaveToServer = debounce(saveProgressServer, 1200);
   debouncedSaveToServer();
 }
-async function loadServerProgress(){
-  if(!currentPlanId) return;
-  try{
-    let r = await fetch(`${API}/plans/progress/get?plan_id=${currentPlanId}`, {headers:{Authorization:`Bearer ${token}`}});
-    if(!r.ok){ r = await fetch(`${API}/plans/${currentPlanId}/progress`, {headers:{Authorization:`Bearer ${token}`}}); }
-    if(!r.ok) return;
+
+/* ----------- Load Progress from Server ----------- */
+async function loadServerProgress() {
+  if (!currentPlanId) return;
+  try {
+    let r = await fetch(`${API}/plans/progress/get?plan_id=${currentPlanId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!r.ok)
+      r = await fetch(`${API}/plans/${currentPlanId}/progress`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+    if (!r.ok) return;
+
     const data = await r.json();
-    if(data && data.progress_json){
-      progress = {...progress, ...data.progress_json};
+    if (data && data.progress) {  // ✅ corrected key
+      progress = { ...progress, ...data.progress };
       saveLocalProgress();
-      renderDaily(); renderWeekly(); renderProgress();
-      toast('☁️ Progress loaded from server');
+      renderDaily();
+      renderWeekly();
+      renderProgress();
+      toast('☁️ Progress synced from server');
     }
-  }catch{}
+  } catch (err) {
+    console.warn('⚠️ Could not load progress:', err);
+  }
 }
 
 /* ==================== CONTINUE PLAN (kept) ==================== */
