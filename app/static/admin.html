@@ -5,46 +5,83 @@
 <title>Admin Dashboard — Cortex Surgery Planner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
-  body{
+  body {
     font-family: "Inter", system-ui, sans-serif;
-    background: #f9fafc;
-    color:#0f172a;
-    margin:0;
-    padding:0;
+    background: #f8fafc;
+    color: #0f172a;
+    margin: 0;
   }
-  header{
-    background: linear-gradient(135deg,#004e92,#000428);
-    color:#fff;
-    padding:16px 24px;
-    font-size:22px;
-    font-weight:600;
+  header {
+    background: linear-gradient(135deg, #004e92, #000428);
+    color: #fff;
+    padding: 18px 24px;
+    font-size: 22px;
+    font-weight: 600;
   }
-  main{
-    max-width:1000px;
-    margin:20px auto;
-    background:#fff;
-    border-radius:16px;
-    box-shadow:0 8px 20px rgba(0,0,0,0.08);
-    padding:24px;
+  main {
+    max-width: 1100px;
+    margin: 20px auto;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    padding: 24px;
   }
-  h2{margin-top:0;color:#1e3a8a;}
-  .muted{color:#64748b;font-size:14px}
-  .btn{
-    background:#2563eb;color:#fff;border:none;
-    border-radius:10px;padding:10px 16px;
-    font-weight:600;cursor:pointer;font-size:14px;
+  h2 {
+    margin-top: 0;
+    color: #1e3a8a;
   }
-  .btn:hover{filter:brightness(1.08)}
-  table{border-collapse:collapse;width:100%;margin-top:12px;font-size:15px}
-  th,td{border:1px solid #e2e8f0;padding:8px;text-align:left}
-  th{background:#f1f5f9}
-  #toast{
-    position:fixed;bottom:20px;right:20px;
-    background:#2563eb;color:#fff;padding:12px 16px;
-    border-radius:10px;opacity:0;transform:translateY(16px);
-    transition:.3s;
+  .muted {
+    color: #64748b;
+    font-size: 14px;
   }
-  #toast.show{opacity:1;transform:translateY(0)}
+  .btn {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 15px;
+    margin-right: 8px;
+  }
+  .btn:hover {
+    filter: brightness(1.08);
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 12px;
+    font-size: 15px;
+  }
+  th, td {
+    border: 1px solid #e2e8f0;
+    padding: 8px;
+    text-align: left;
+  }
+  th {
+    background: #f1f5f9;
+  }
+  h3 {
+    margin-top: 28px;
+    color: #0f172a;
+  }
+  #toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #2563eb;
+    color: #fff;
+    padding: 12px 16px;
+    border-radius: 10px;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: 0.3s;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
 </style>
 </head>
 
@@ -52,7 +89,7 @@
 <header>🧠 Admin Dashboard — Cortex Surgery Planner</header>
 <main>
   <div id="loginSection">
-    <p><b>Restricted Access</b><br><span class="muted">Login with your admin email to continue.</span></p>
+    <p><b>Restricted Access</b><br><span class="muted">Login with your admin credentials.</span></p>
     <input id="email" type="email" placeholder="Email" style="padding:10px;width:100%;margin:6px 0;border:1px solid #d0d7de;border-radius:8px"><br>
     <input id="password" type="password" placeholder="Password" style="padding:10px;width:100%;margin:6px 0;border:1px solid #d0d7de;border-radius:8px"><br>
     <button class="btn" id="loginBtn">Login</button>
@@ -61,14 +98,22 @@
   <div id="dashboard" style="display:none">
     <h2>📊 Platform Overview</h2>
     <div id="summary" class="muted">Loading...</div>
-    <button class="btn" id="refreshBtn">🔄 Refresh</button>
-    <button class="btn" id="exportBtn">📥 Download CSV</button>
+    <div style="margin:10px 0">
+      <button class="btn" id="refreshBtn">🔄 Refresh</button>
+      <button class="btn" id="exportBtn">📥 Download CSV</button>
+    </div>
 
     <h3>👤 Registered Users</h3>
-    <table id="userTable"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Goal</th><th>Joined</th></tr></thead><tbody></tbody></table>
+    <table id="userTable">
+      <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Goal</th><th>Joined</th></tr></thead>
+      <tbody></tbody>
+    </table>
 
     <h3>📘 Plans</h3>
-    <table id="planTable"><thead><tr><th>ID</th><th>User ID</th><th>Name</th><th>Created</th></tr></thead><tbody></tbody></table>
+    <table id="planTable">
+      <thead><tr><th>ID</th><th>User ID</th><th>Name</th><th>Created</th></tr></thead>
+      <tbody></tbody>
+    </table>
   </div>
 </main>
 
@@ -80,41 +125,63 @@ const toast = (msg)=>{ const t=document.getElementById('toast'); t.textContent=m
 const $ = (id)=>document.getElementById(id);
 let token = localStorage.getItem('admin_token');
 
-async function login(){
-  const email=$('email').value, password=$('password').value;
-  const res=await fetch(`${API}/login`,{
-    method:'POST',headers:{'Content-Type':'application/json'},
+$('loginBtn').onclick = async ()=>{
+  const email=$('email').value.trim(), password=$('password').value.trim();
+  const res = await fetch(`${API}/login`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
     body:JSON.stringify({email,password})
   });
-  if(!res.ok){toast('❌ Login failed');return;}
-  const data=await res.json();
-  token=data.access_token; localStorage.setItem('admin_token',token);
+  if(!res.ok){ toast('❌ Login failed'); return; }
+  const data = await res.json();
+  token = data.access_token;
+  localStorage.setItem('admin_token', token);
   await loadDashboard();
-}
+};
 
 async function loadDashboard(){
-  try{
-    const res=await fetch(`${API}/admin/stats`,{headers:{Authorization:`Bearer ${token}`}});
-    if(!res.ok){toast('Access denied');return;}
-    const d=await res.json();
+  try {
+    const res = await fetch(`${API}/admin/stats`, {headers:{Authorization:`Bearer ${token}`}});
+    if(!res.ok){ toast('⚠️ Access denied or expired'); localStorage.removeItem('admin_token'); return; }
+    const d = await res.json();
     $('loginSection').style.display='none';
     $('dashboard').style.display='block';
-    $('summary').innerHTML=`Total Users: <b>${d.total_users}</b> • Total Plans: <b>${d.total_plans}</b>`;
+    $('summary').innerHTML = `Total Users: <b>${d.total_users}</b> • Total Plans: <b>${d.total_plans}</b>`;
     renderTables(d);
-  }catch{toast('⚠️ Error loading data');}
+  } catch (e) {
+    toast('⚠️ Error loading data');
+  }
 }
 
-function renderTables(d){
-  const uBody=$('#userTable tbody'); const pBody=$('#planTable tbody');
-  uBody.innerHTML=d.users.map(u=>`<tr><td>${u.id}</td><td>${u.name}</td><td>${u.email}</td><td>${u.goal||''}</td><td>${new Date(u.created_at).toLocaleString()}</td></tr>`).join('');
-  pBody.innerHTML=d.plans.map(p=>`<tr><td>${p.id}</td><td>${p.user_id}</td><td>${p.name}</td><td>${new Date(p.created_at).toLocaleString()}</td></tr>`).join('');
+function renderTables(data){
+  const uBody = $('#userTable tbody');
+  const pBody = $('#planTable tbody');
+  if(!data.users?.length){ uBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#64748b">No users found.</td></tr>`; }
+  else {
+    uBody.innerHTML = data.users.map(u=>`
+      <tr>
+        <td>${u.id}</td>
+        <td>${u.name || '-'}</td>
+        <td>${u.email}</td>
+        <td>${u.goal || '-'}</td>
+        <td>${u.created_at ? new Date(u.created_at).toLocaleString() : '-'}</td>
+      </tr>`).join('');
+  }
+
+  if(!data.plans?.length){ pBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#64748b">No plans found.</td></tr>`; }
+  else {
+    pBody.innerHTML = data.plans.map(p=>`
+      <tr>
+        <td>${p.id}</td>
+        <td>${p.user_id}</td>
+        <td>${p.name || '-'}</td>
+        <td>${p.created_at ? new Date(p.created_at).toLocaleString() : '-'}</td>
+      </tr>`).join('');
+  }
 }
 
-$('loginBtn').onclick=login;
-$('refreshBtn').onclick=loadDashboard;
-$('exportBtn').onclick=()=>{
-  window.open(`${API}/admin/export?auth=${token}`,'_blank');
-};
+$('refreshBtn').onclick = loadDashboard;
+$('exportBtn').onclick = ()=> window.open(`${API}/admin/export`, '_blank');
+
 if(token) loadDashboard();
 </script>
 </body>
