@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app import models, database
-from app.auth import get_current_user  # adjust path if different
+from app.auth import get_current_user  # adjust path if needed
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
-@router.get("/admin/stats")
+@router.get("/stats")  # 👈 only '/stats' (not '/admin/stats')
 def get_admin_stats(db: Session = Depends(database.get_db), user=Depends(get_current_user)):
     # Restrict to admin (you)
     if user.email != "sushrutalgs@gmail.com":
@@ -25,8 +25,8 @@ def get_admin_stats(db: Session = Depends(database.get_db), user=Depends(get_cur
                 "id": u.id,
                 "name": u.name,
                 "email": u.email,
-                "goal": u.goal,
-                "created_at": u.created_at,
+                "goal": getattr(u, "goal", None),
+                "created_at": u.created_at.isoformat() if u.created_at else None,
             }
             for u in users
         ],
@@ -34,10 +34,9 @@ def get_admin_stats(db: Session = Depends(database.get_db), user=Depends(get_cur
             {
                 "id": p.id,
                 "user_id": p.user_id,
-                "name": p.name,
-                "created_at": p.created_at,
+                "name": getattr(p, "name", None),
+                "created_at": p.created_at.isoformat() if p.created_at else None,
             }
             for p in plans
         ],
     }
-
