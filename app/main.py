@@ -11,12 +11,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
 
 
-# -------------------------------------------------------------------
-# Lifespan (replaces deprecated @app.on_event("startup"))
-# -------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # ---- STARTUP ----
     try:
         from app.database import init_db
         init_db()
@@ -24,24 +20,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"⚠️ Database initialization failed: {e}")
     yield
-    # ---- SHUTDOWN ----
-    print("👋 Shutting down NEET SS Planner API.")
+    print("👋 Shutting down Cortex Surgery Planner API.")
 
 
-# -------------------------------------------------------------------
-# Initialize FastAPI App
-# -------------------------------------------------------------------
 app = FastAPI(
-    title="NEET SS Study Planner API",
-    version="2.1.0",
-    description="Backend for NEET SS Surgical Group Study Planner with personalization, saved plans, and user authentication.",
+    title="Cortex Surgery AI Planner API",
+    version="3.0.0",
+    description="NEET SS Surgical Group Study Planner with adaptive scheduling, SM-2 recall, analytics, AI coaching, and peer leaderboard.",
     lifespan=lifespan,
 )
 
 
-# -------------------------------------------------------------------
-# Global Validation Error Handler (Debugging 400s)
-# -------------------------------------------------------------------
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     error_details = exc.errors()
@@ -49,9 +38,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(status_code=400, content={"detail": error_details})
 
 
-# -------------------------------------------------------------------
-# CORS Middleware (env-based origins)
-# -------------------------------------------------------------------
+# CORS
 allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "*")
 if allowed_origins_str == "*":
     allowed_origins = ["*"]
@@ -66,68 +53,84 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# -------------------------------------------------------------------
-# Static Files Setup (Frontend)
-# -------------------------------------------------------------------
+# Static Files
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
-else:
-    print("⚠️ Static directory not found. Frontend may not load correctly.")
 
-
-# -------------------------------------------------------------------
-# Routers Registration
-# -------------------------------------------------------------------
+# Routers
 try:
-    from app.routers import users, plans, progress, admin
+    from app.routers import (
+        users, plans, progress, admin,
+        mcq_scores, study_sessions, notes, recall,
+        analytics, leaderboard, ai_coach, dashboard,
+    )
 
+    app.include_router(dashboard.router, prefix="/api", tags=["Dashboard"])
     app.include_router(users.router, prefix="/api", tags=["Users"])
     app.include_router(plans.router, prefix="/api", tags=["Plans"])
     app.include_router(progress.router, prefix="/api", tags=["Progress"])
+    app.include_router(mcq_scores.router, prefix="/api", tags=["MCQ Scores"])
+    app.include_router(study_sessions.router, prefix="/api", tags=["Study Sessions"])
+    app.include_router(notes.router, prefix="/api", tags=["Notes"])
+    app.include_router(recall.router, prefix="/api", tags=["Recall"])
+    app.include_router(analytics.router, prefix="/api", tags=["Analytics"])
+    app.include_router(leaderboard.router, prefix="/api", tags=["Leaderboard"])
+    app.include_router(ai_coach.router, prefix="/api", tags=["AI Coach"])
     app.include_router(admin.router)
 
-    print("✅ Routers loaded successfully.")
+    print("✅ All routers loaded successfully.")
 except Exception as e:
     print(f"⚠️ Warning: Routers not loaded → {e}")
 
 
-# -------------------------------------------------------------------
-# Serve Frontend (index.html at root)
-# -------------------------------------------------------------------
 @app.get("/")
 def serve_frontend():
-    """Serve frontend UI as the homepage."""
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    return {"message": "NEET SS Planner backend running. Frontend not found."}
+    return {"message": "Cortex Surgery Planner backend running. Frontend not found."}
 
 
 @app.get("/admin")
 def serve_admin_dashboard():
-    """Serve private admin dashboard."""
     admin_path = os.path.join(static_dir, "admin.html")
     if os.path.exists(admin_path):
         return FileResponse(admin_path)
     return {"message": "Admin dashboard not found."}
 
 
-# -------------------------------------------------------------------
-# Health Check Endpoint
-# -------------------------------------------------------------------
 @app.get("/health")
 def health_check():
-    """Simple health check for uptime monitors."""
-    return {"ok": True, "message": "Planner API is healthy and online."}
+    return {"ok": True, "version": "3.0.0", "message": "Cortex Surgery Planner is healthy."}
 
 
-# -------------------------------------------------------------------
-# Local Development Entry Point
-# -------------------------------------------------------------------
+# PWA manifest
+@app.get("/manifest.json")
+def serve_manifest():
+    manifest_path = os.path.join(static_dir, "manifest.json")
+    if os.path.exists(manifest_path):
+        return FileResponse(manifest_path, media_type="application/json")
+    return JSONResponse({
+        "name": "Cortex Surgery AI Planner",
+        "short_name": "Cortex",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#f5f5f7",
+        "theme_color": "#0071e3",
+        "icons": [{"src": "/static/logo.png", "sizes": "512x512", "type": "image/png"}],
+    })
+
+
+@app.get("/sw.js")
+def serve_sw():
+    sw_path = os.path.join(static_dir, "sw.js")
+    if os.path.exists(sw_path):
+        return FileResponse(sw_path, media_type="application/javascript")
+    return Response(content="// No service worker", media_type="application/javascript")
+
+
 if __name__ == "__main__":
     import uvicorn
-
     port = int(os.getenv("PORT", 8000))
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
