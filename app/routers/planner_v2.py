@@ -39,6 +39,8 @@ from app.lms_client import (
     get_user_mcq_history,
     get_user_mock_history,
     get_user_content_progress,
+    send_otp_email,
+    login_with_otp,
 )
 from app.content_scheduler import (
     SchedulerConfig,
@@ -52,6 +54,68 @@ from app.models import Plan, RecallCard, TopicMastery, User
 
 logger = logging.getLogger("planner.v2")
 router = APIRouter(prefix="/api", tags=["Planner v2"])
+
+
+# ───────────────────────── auth proxy (OTP via Sushruta LMS) ─────────────────────────
+#
+# The planner does not maintain its own password database. All authentication
+# goes through the Sushruta LMS OTP flow so the same account works in the
+# mobile app, the web app, and Cortex. These two endpoints are thin proxies
+# that accept browser requests and forward them to the LMS over the server
+# network (avoids CORS, hides the LMS origin, centralises error mapping).
+
+
+class _OtpSendRequest(BaseModel):
+    email: str = Field(..., min_length=3)
+
+
+class _OtpVerifyRequest(BaseModel):
+    email: str = Field(..., min_length=3)
+    otp: str = Field(..., min_length=3, max_length=8)
+    device_type: str = Field(default="desktop")
+    device_id: str = Field(default="cortex-web")
+    device_name: str = Field(default="Cortex Web")
+    device_unique_id: str = Field(default="cortex-web")
+
+
+@router.post("/auth/send-otp")
+def auth_send_otp(body: _OtpSendRequest):
+    """Step 1 — ask the LMS to email a 4-digit OTP to this address."""
+    try:
+        send_otp_email(body.email.strip().lower())
+    except LmsError as e:
+        msg = str(e)
+        if "404" in msg:
+            raise HTTPException(status_code=404, detail="No Sushruta account found for that email. Sign up in the Sushruta app first.")
+        raise HTTPException(status_code=502, detail=f"Could not send OTP: {msg}")
+    return {"ok": True, "message": "OTP sent. Check your email (expires in 2 minutes)."}
+
+
+@router.post("/auth/verify-otp")
+def auth_verify_otp(body: _OtpVerifyRequest):
+    """Step 2 — verify OTP and return an LMS session token the planner accepts."""
+    try:
+        resp = login_with_otp(
+            email=body.email.strip().lower(),
+            otp=body.otp.strip(),
+            device_type=body.device_type,
+            device_id=body.device_id,
+            device_name=body.device_name,
+            device_unique_id=body.device_unique_id,
+        )
+    except LmsError as e:
+        raise HTTPException(status_code=401, detail=f"OTP verification failed: {e}")
+
+    # LMS wraps success responses in { status, data: { token, isActive, ... } }
+    data = resp.get("data") if isinstance(resp, dict) else None
+    token = None
+    if isinstance(data, dict):
+        token = data.get("token") or data.get("access_token")
+    if not token and isinstance(resp, dict):
+        token = resp.get("token") or resp.get("access_token")
+    if not token:
+        raise HTTPException(status_code=502, detail="LMS did not return a session token.")
+    return {"ok": True, "token": token, "lms_response": data or {}}
 
 
 # ───────────────────────── helpers ─────────────────────────

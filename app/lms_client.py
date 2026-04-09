@@ -219,6 +219,45 @@ def get_cohort_stats(token: str, exam_type: str = "NEET_SS") -> Dict[str, Any]:
     return _get_json(token, "/api/planner/cohort-stats", {"exam_type": exam_type})
 
 
+def send_otp_email(email: str) -> Dict[str, Any]:
+    """Step 1 of OTP login — asks the LMS to email a 4-digit OTP."""
+    try:
+        with _client() as c:
+            r = c.post("/api/user/sendOtpMail", json={"email": email})
+        if r.status_code != 200:
+            raise LmsError(f"sendOtpMail http {r.status_code}: {r.text[:200]}")
+        return r.json()
+    except httpx.HTTPError as e:
+        raise LmsError(f"sendOtpMail network: {e}") from e
+
+
+def login_with_otp(
+    email: str,
+    otp: str,
+    device_type: str = "desktop",
+    device_id: str = "cortex-web",
+    device_name: str = "Cortex Web",
+    device_unique_id: str = "cortex-web",
+) -> Dict[str, Any]:
+    """Step 2 of OTP login — verifies OTP and returns an LMS session token."""
+    body = {
+        "email": email,
+        "userOTP": str(otp),
+        "deviceType": device_type,
+        "deviceId": device_id,
+        "deviceName": device_name,
+        "deviceUniqueId": device_unique_id,
+    }
+    try:
+        with _client() as c:
+            r = c.post("/api/user/LoginWithOtp", json=body)
+        if r.status_code != 200:
+            raise LmsError(f"LoginWithOtp http {r.status_code}: {r.text[:200]}")
+        return r.json()
+    except httpx.HTTPError as e:
+        raise LmsError(f"LoginWithOtp network: {e}") from e
+
+
 def emit_planner_event(token: str, event_type: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     """Send a planner-side event back to the LMS event bus (e.g. plan_generated)."""
     try:

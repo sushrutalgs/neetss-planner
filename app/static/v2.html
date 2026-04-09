@@ -158,11 +158,42 @@
 <div id="login" class="hidden">
   <div class="card big">
     <h2 style="font-size:22px;text-align:center;margin-bottom:6px">Cortex Surgery Planner</h2>
-    <p class="sub" style="text-align:center;margin-bottom:20px">Sign in with your Sushruta LMS credentials</p>
-    <div class="field"><label>Email</label><input id="loginEmail" type="email" placeholder="dr@example.com" /></div>
-    <div class="field"><label>Password</label><input id="loginPassword" type="password" /></div>
-    <button class="btn" style="width:100%;justify-content:center" onclick="login()">Sign in</button>
-    <p class="sub" style="text-align:center;margin-top:14px">Need an account? <a href="https://sushruta.ai">Sign up at sushruta.ai</a></p>
+    <p class="sub" style="text-align:center;margin-bottom:20px">Sign in with your Sushruta account — same email & OTP as the Sushruta app</p>
+
+    <!-- Step 1: email → send OTP -->
+    <div id="otpStep1">
+      <div class="field">
+        <label>Email</label>
+        <input id="loginEmail" type="email" placeholder="dr@example.com" autocomplete="email" />
+      </div>
+      <button id="sendOtpBtn" class="btn" style="width:100%;justify-content:center" onclick="sendOtp()">Send OTP</button>
+    </div>
+
+    <!-- Step 2: OTP entry → verify -->
+    <div id="otpStep2" class="hidden">
+      <p class="sub" style="margin-bottom:10px">
+        We emailed a 4-digit OTP to <strong id="otpEmailEcho"></strong>.
+        It expires in 2 minutes.
+      </p>
+      <div class="field">
+        <label>OTP</label>
+        <input id="loginOtp" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+               placeholder="••••" autocomplete="one-time-code"
+               style="text-align:center;font-size:22px;letter-spacing:8px" />
+      </div>
+      <button id="verifyOtpBtn" class="btn" style="width:100%;justify-content:center" onclick="verifyOtp()">Verify & sign in</button>
+      <p class="sub" style="text-align:center;margin-top:10px">
+        <a href="#" onclick="event.preventDefault();backToEmail()">Use a different email</a>
+        &nbsp;·&nbsp;
+        <a href="#" onclick="event.preventDefault();sendOtp(true)">Resend OTP</a>
+      </p>
+    </div>
+
+    <p class="sub" style="text-align:center;margin-top:14px">
+      Don't have a Sushruta account?
+      <a href="https://sushruta.ai" target="_blank" rel="noopener">Create one at sushruta.ai</a>
+      — the same account works in the Sushruta app and here.
+    </p>
   </div>
 </div>
 
@@ -254,23 +285,80 @@ async function api(path, opts = {}) {
   return r.json();
 }
 
-async function login() {
-  const email = document.getElementById('loginEmail').value;
-  const password = document.getElementById('loginPassword').value;
+// ───── OTP login (same flow as the Sushruta app — sendOtpMail + LoginWithOtp)
+async function sendOtp(isResend = false) {
+  const email = (document.getElementById('loginEmail').value || '').trim().toLowerCase();
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    toast('Enter a valid email');
+    return;
+  }
+  const btn = document.getElementById('sendOtpBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
   try {
-    const r = await fetch('/api/auth/login', {
+    const r = await fetch('/api/auth/send-otp', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({email, password}),
+      body: JSON.stringify({email}),
     });
-    if (!r.ok) { toast('Invalid credentials'); return; }
-    const data = await r.json();
-    token = data.token || data.access_token || (data.data && data.data.token);
-    if (!token) { toast('No token returned'); return; }
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      toast(data.detail || 'Could not send OTP');
+      return;
+    }
+    document.getElementById('otpEmailEcho').textContent = email;
+    document.getElementById('otpStep1').classList.add('hidden');
+    document.getElementById('otpStep2').classList.remove('hidden');
+    document.getElementById('loginOtp').focus();
+    toast(isResend ? 'OTP re-sent' : 'OTP sent to your email');
+  } catch(e) {
+    toast('Network error: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Send OTP'; }
+  }
+}
+
+async function verifyOtp() {
+  const email = (document.getElementById('loginEmail').value || '').trim().toLowerCase();
+  const otp = (document.getElementById('loginOtp').value || '').trim();
+  if (!otp) { toast('Enter the OTP'); return; }
+  const btn = document.getElementById('verifyOtpBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
+  try {
+    const r = await fetch('/api/auth/verify-otp', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        email,
+        otp,
+        device_type: 'desktop',
+        device_id: 'cortex-web',
+        device_name: navigator.userAgent.slice(0, 60),
+        device_unique_id: (localStorage.getItem('cortex_device_uid') || (function(){
+          const u = 'cortex-web-' + Math.random().toString(36).slice(2, 10);
+          localStorage.setItem('cortex_device_uid', u);
+          return u;
+        })()),
+      }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(data.detail || 'Invalid OTP'); return; }
+    token = data.token || (data.lms_response && data.lms_response.token);
+    if (!token) { toast('No token returned from LMS'); return; }
     localStorage.setItem(TOKEN_KEY, token);
     showApp();
     refreshAll();
-  } catch(e) { toast('Login failed: ' + e.message); }
+  } catch(e) {
+    toast('Verification failed: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Verify & sign in'; }
+  }
+}
+
+function backToEmail() {
+  document.getElementById('otpStep2').classList.add('hidden');
+  document.getElementById('otpStep1').classList.remove('hidden');
+  document.getElementById('loginOtp').value = '';
+  document.getElementById('loginEmail').focus();
 }
 
 function logout() {
