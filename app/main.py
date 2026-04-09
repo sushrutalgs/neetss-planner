@@ -4,6 +4,16 @@ import sys
 import json
 from contextlib import asynccontextmanager
 
+# Load .env before any other imports that read env vars (database URL,
+# LMS_BASE_URL, ANTHROPIC_API_KEY, PLANNER_WEBHOOK_SECRET, JWT_SECRET).
+# The .env file lives at the project root alongside this `app/` package.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+except ImportError:
+    # python-dotenv not installed yet on first deploy; pm2 env vars still work
+    pass
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
