@@ -39,8 +39,8 @@ from app.lms_client import (
     get_user_mcq_history,
     get_user_mock_history,
     get_user_content_progress,
-    send_otp_email,
-    login_with_otp,
+    send_otp_sms,
+    login_via_sms,
 )
 from app.content_scheduler import (
     SchedulerConfig,
@@ -56,21 +56,27 @@ logger = logging.getLogger("planner.v2")
 router = APIRouter(prefix="/api", tags=["Planner v2"])
 
 
-# ───────────────────────── auth proxy (OTP via Sushruta LMS) ─────────────────────────
+# ───────────────────────── auth proxy (SMS OTP via Sushruta LMS) ─────────────────────────
 #
 # The planner does not maintain its own password database. All authentication
-# goes through the Sushruta LMS OTP flow so the same account works in the
-# mobile app, the web app, and Cortex. These two endpoints are thin proxies
-# that accept browser requests and forward them to the LMS over the server
-# network (avoids CORS, hides the LMS origin, centralises error mapping).
+# goes through the Sushruta LMS mobile OTP flow (MSG91 SMS → WhatsappOtpModel
+# — legacy table name, the actual delivery is MSG91 SMS) so the same account
+# works in the Sushruta mobile app, the Sushruta web app, and Cortex.
+#
+# These two endpoints are thin server-side proxies that forward the browser
+# request to the LMS (avoids CORS, hides the LMS origin, centralises error
+# mapping). The LMS endpoints hit are exactly the ones the Sushruta app
+# already uses in production:
+#   POST /api/sendOtpViaSms   body: { phone }
+#   POST /api/loginViaSms     body: { phone, userOTP, deviceType, ... }
 
 
 class _OtpSendRequest(BaseModel):
-    email: str = Field(..., min_length=3)
+    phone: str = Field(..., min_length=6, max_length=20)
 
 
 class _OtpVerifyRequest(BaseModel):
-    email: str = Field(..., min_length=3)
+    phone: str = Field(..., min_length=6, max_length=20)
     otp: str = Field(..., min_length=3, max_length=8)
     device_type: str = Field(default="desktop")
     device_id: str = Field(default="cortex-web")
@@ -80,23 +86,25 @@ class _OtpVerifyRequest(BaseModel):
 
 @router.post("/auth/send-otp")
 def auth_send_otp(body: _OtpSendRequest):
-    """Step 1 — ask the LMS to email a 4-digit OTP to this address."""
+    """Step 1 — ask the LMS (via MSG91) to SMS a 4-digit OTP to this mobile."""
     try:
-        send_otp_email(body.email.strip().lower())
+        send_otp_sms(body.phone)
     except LmsError as e:
         msg = str(e)
-        if "404" in msg:
-            raise HTTPException(status_code=404, detail="No Sushruta account found for that email. Sign up in the Sushruta app first.")
+        if "must be a 10-digit" in msg:
+            raise HTTPException(status_code=400, detail="Enter a valid 10-digit mobile number.")
+        if "404" in msg or "not found" in msg.lower():
+            raise HTTPException(status_code=404, detail="No Sushruta LGS App account found for that mobile. Create one first.")
         raise HTTPException(status_code=502, detail=f"Could not send OTP: {msg}")
-    return {"ok": True, "message": "OTP sent. Check your email (expires in 2 minutes)."}
+    return {"ok": True, "message": "OTP sent. Check your SMS (expires in 2 minutes)."}
 
 
 @router.post("/auth/verify-otp")
 def auth_verify_otp(body: _OtpVerifyRequest):
-    """Step 2 — verify OTP and return an LMS session token the planner accepts."""
+    """Step 2 — verify SMS OTP and return an LMS session token the planner accepts."""
     try:
-        resp = login_with_otp(
-            email=body.email.strip().lower(),
+        resp = login_via_sms(
+            phone=body.phone,
             otp=body.otp.strip(),
             device_type=body.device_type,
             device_id=body.device_id,

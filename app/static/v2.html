@@ -3,20 +3,30 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#0a2540" />
-<title>Cortex Surgery · Planner</title>
+<meta name="theme-color" content="#050b1a" />
+<title>Cortex Surgery · Smart AI Planner for NEET SS</title>
+<meta name="description" content="Cortex Surgery — Smart AI Planner for NEET SS. Adaptive scheduling, spaced recall, and an AI coach that learns how you study." />
 <link rel="manifest" href="/manifest.json" />
 <link rel="icon" href="/static/favicon.ico" />
+<link rel="apple-touch-icon" href="/static/logo.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 <style>
   :root{
     --bg:#f5f5f7; --card:#ffffff; --ink:#1d1d1f; --muted:#86868b;
     --line:#e5e5ea; --accent:#0071e3; --accent-deep:#0a2540;
     --green:#34c759; --yellow:#ffcc00; --red:#ff3b30; --pink:#ff2d55;
+    --brand-grad:linear-gradient(135deg,#6366f1 0%,#0071e3 45%,#06b6d4 100%);
+    --brand-grad-soft:linear-gradient(135deg,rgba(99,102,241,.12) 0%,rgba(0,113,227,.10) 50%,rgba(6,182,212,.12) 100%);
     --shadow:0 1px 3px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+    --shadow-lg:0 30px 80px -20px rgba(6,17,42,.35), 0 10px 30px -10px rgba(6,17,42,.25);
     --radius:14px; --radius-lg:20px;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter",system-ui,sans-serif;background:var(--bg);color:var(--ink);font-feature-settings:"ss01","ss02";-webkit-font-smoothing:antialiased}
+  html,body{margin:0;padding:0;font-family:"Inter",-apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;background:var(--bg);color:var(--ink);font-feature-settings:"ss01","ss02","cv11";-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  .display{font-family:"Space Grotesk","Inter",system-ui,sans-serif;letter-spacing:-0.02em}
+  .grad-text{background:var(--brand-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
   a{color:var(--accent);text-decoration:none}
   button{font:inherit;color:inherit;cursor:pointer}
   input,select,textarea{font:inherit;color:inherit}
@@ -24,9 +34,22 @@
 
   /* App shell */
   #app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
-  #sidebar{background:var(--card);border-right:1px solid var(--line);padding:24px 16px;position:sticky;top:0;height:100vh;overflow-y:auto}
-  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;margin-bottom:24px;color:var(--accent-deep)}
-  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+  #sidebar{background:var(--card);border-right:1px solid var(--line);padding:24px 18px;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:28px;padding:6px 4px}
+  .brand .logo{
+    width:40px;height:40px;border-radius:12px;object-fit:contain;
+    background:linear-gradient(135deg,#eef4ff,#e0f2fe);padding:5px;
+    box-shadow:0 4px 14px -4px rgba(0,113,227,.35);
+    border:1px solid rgba(99,102,241,.15);flex-shrink:0;
+  }
+  .brand .wordmark{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+  .brand .wordmark .name{font-family:"Space Grotesk",sans-serif;font-weight:700;font-size:16px;letter-spacing:-.01em;color:var(--accent-deep);white-space:nowrap}
+  .brand .wordmark .name .ai{
+    display:inline-block;margin-left:4px;padding:1px 6px;border-radius:999px;
+    font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    background:var(--brand-grad);color:#fff;vertical-align:middle;
+  }
+  .brand .wordmark .tag{font-size:10px;font-weight:500;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .nav{display:flex;flex-direction:column;gap:2px}
   .nav button{display:flex;align-items:center;gap:10px;padding:10px 12px;border:0;background:transparent;border-radius:10px;text-align:left;color:var(--ink);font-weight:500;font-size:14px}
   .nav button:hover{background:#f0f0f3}
@@ -37,7 +60,7 @@
 
   #main{padding:32px 40px 80px;max-width:1280px;width:100%;margin:0 auto}
   .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:16px;flex-wrap:wrap}
-  .topbar h1{margin:0;font-size:28px;letter-spacing:-0.5px;font-weight:700}
+  .topbar h1{margin:0;font-size:30px;font-family:"Space Grotesk","Inter",sans-serif;letter-spacing:-0.025em;font-weight:700;color:var(--accent-deep)}
   .topbar .meta{color:var(--muted);font-size:13px;margin-top:2px}
   .topbar .right{display:flex;gap:10px;align-items:center}
   .pill{padding:6px 12px;border-radius:999px;background:#eef4ff;color:var(--accent);font-weight:600;font-size:12px}
@@ -139,9 +162,163 @@
   #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1d1d1f;color:#fff;padding:12px 22px;border-radius:980px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;z-index:200}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
 
-  /* Login */
-  #login{display:flex;align-items:center;justify-content:center;min-height:100vh}
-  #login .card{max-width:420px;width:90%}
+  /* ═══════════ LOGIN — premium brand experience ═══════════ */
+  #login{
+    position:relative;display:flex;align-items:center;justify-content:center;
+    min-height:100vh;padding:40px 20px;
+    background:radial-gradient(1200px 800px at 15% 10%, #1a2a5e 0%, transparent 55%),
+               radial-gradient(900px 700px at 85% 90%, #0a4f6b 0%, transparent 60%),
+               linear-gradient(160deg,#050b1a 0%,#081226 55%,#0a1633 100%);
+    overflow:hidden;
+  }
+  #login::before{
+    content:"";position:absolute;inset:-20%;pointer-events:none;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(99,102,241,.35), transparent 45%),
+      radial-gradient(circle at 80% 70%, rgba(6,182,212,.30), transparent 45%),
+      radial-gradient(circle at 60% 20%, rgba(0,113,227,.25), transparent 40%);
+    filter:blur(60px);
+    animation:mesh 18s ease-in-out infinite alternate;
+  }
+  @keyframes mesh{
+    0%  {transform:translate(0,0) scale(1)}
+    50% {transform:translate(-3%,2%) scale(1.05)}
+    100%{transform:translate(2%,-3%) scale(1.02)}
+  }
+  #login::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:radial-gradient(rgba(255,255,255,.06) 1px, transparent 1px);
+    background-size:22px 22px;
+    mask-image:radial-gradient(ellipse at center, #000 30%, transparent 75%);
+  }
+  .login-shell{
+    position:relative;z-index:1;width:100%;max-width:960px;
+    display:grid;grid-template-columns:1.1fr .9fr;gap:24px;align-items:stretch;
+  }
+  .login-hero{
+    padding:44px 40px;border-radius:28px;color:#fff;
+    background:linear-gradient(145deg,rgba(255,255,255,.06) 0%, rgba(255,255,255,.02) 100%);
+    border:1px solid rgba(255,255,255,.10);
+    backdrop-filter:blur(24px) saturate(180%);
+    -webkit-backdrop-filter:blur(24px) saturate(180%);
+    box-shadow:var(--shadow-lg);
+    display:flex;flex-direction:column;justify-content:space-between;
+  }
+  .login-hero .logo-wrap{display:flex;align-items:center;gap:14px;margin-bottom:24px}
+  .login-hero .logo-wrap img{
+    width:52px;height:52px;border-radius:14px;
+    background:#fff;padding:6px;object-fit:contain;
+    box-shadow:0 10px 30px -10px rgba(99,102,241,.6);
+  }
+  .login-hero .logo-wrap .mark{
+    font-family:"Space Grotesk",sans-serif;font-weight:700;font-size:20px;
+    letter-spacing:-.02em;line-height:1.1;
+  }
+  .login-hero .logo-wrap .mark .ai-chip{
+    display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;
+    font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    background:linear-gradient(135deg,#6366f1,#06b6d4);color:#fff;vertical-align:middle;
+  }
+  .login-hero .logo-wrap .mark .sub{
+    display:block;font-family:"Inter",sans-serif;font-size:11px;font-weight:500;
+    color:rgba(255,255,255,.55);letter-spacing:.05em;text-transform:uppercase;margin-top:2px;
+  }
+  .login-hero h1{
+    font-family:"Space Grotesk",sans-serif;font-size:44px;line-height:1.04;
+    letter-spacing:-.035em;font-weight:700;margin:8px 0 14px;
+  }
+  .login-hero h1 .g{
+    background:linear-gradient(135deg,#a5b4fc 0%,#67e8f9 55%,#7dd3fc 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .login-hero p.tagline{
+    font-size:15px;line-height:1.6;color:rgba(255,255,255,.72);margin:0 0 28px;max-width:430px;
+  }
+  .feat-list{display:flex;flex-direction:column;gap:12px;margin-bottom:28px}
+  .feat-list .f{
+    display:flex;align-items:flex-start;gap:12px;font-size:13px;color:rgba(255,255,255,.78);
+  }
+  .feat-list .f .ico{
+    flex-shrink:0;width:30px;height:30px;border-radius:9px;display:flex;
+    align-items:center;justify-content:center;font-size:14px;
+    background:linear-gradient(135deg,rgba(99,102,241,.25),rgba(6,182,212,.25));
+    border:1px solid rgba(255,255,255,.10);
+  }
+  .feat-list .f strong{color:#fff;font-weight:600;display:block;font-size:13.5px;margin-bottom:1px}
+  .login-hero .foot{
+    display:flex;gap:10px;flex-wrap:wrap;margin-top:auto;
+    font-size:11px;color:rgba(255,255,255,.45);
+  }
+  .login-hero .foot .tag{
+    padding:5px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.12);
+    color:rgba(255,255,255,.65);font-weight:500;letter-spacing:.02em;
+  }
+
+  .login-card{
+    padding:40px 36px;border-radius:28px;background:#fff;
+    box-shadow:var(--shadow-lg);display:flex;flex-direction:column;justify-content:center;
+    position:relative;
+  }
+  .login-card .badge{
+    display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;
+    background:var(--brand-grad-soft);color:#0a2540;
+    font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+    border:1px solid rgba(99,102,241,.20);margin-bottom:14px;align-self:flex-start;
+  }
+  .login-card .badge .dot{width:6px;height:6px;border-radius:50%;background:#34c759;box-shadow:0 0 0 3px rgba(52,199,89,.18)}
+  .login-card h2{
+    font-family:"Space Grotesk",sans-serif;font-size:26px;font-weight:700;
+    letter-spacing:-.02em;margin:0 0 6px;color:var(--accent-deep);
+  }
+  .login-card .lead{font-size:13.5px;color:var(--muted);margin:0 0 26px;line-height:1.5}
+
+  .phone-field{position:relative;margin-bottom:14px}
+  .phone-field label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px}
+  .phone-field .input-wrap{display:flex;align-items:stretch;border:1.5px solid var(--line);border-radius:14px;background:#fafafc;overflow:hidden;transition:border-color .15s, background .15s}
+  .phone-field .input-wrap:focus-within{border-color:var(--accent);background:#fff;box-shadow:0 0 0 4px rgba(0,113,227,.10)}
+  .phone-field .cc{display:flex;align-items:center;padding:0 14px;font-size:15px;font-weight:600;color:var(--accent-deep);border-right:1px solid var(--line);background:#f3f4f7;gap:6px}
+  .phone-field .cc .flag{font-size:16px}
+  .phone-field input{flex:1;border:0;background:transparent;padding:13px 14px;font-size:16px;font-weight:500;outline:0;letter-spacing:.3px}
+
+  .otp-inputs{display:flex;gap:10px;justify-content:space-between;margin:4px 0 18px}
+  .otp-inputs input{
+    flex:1;min-width:0;max-width:60px;height:58px;text-align:center;
+    font-family:"Space Grotesk",sans-serif;font-size:26px;font-weight:700;
+    border:1.5px solid var(--line);border-radius:14px;background:#fafafc;
+    outline:0;transition:border-color .15s, background .15s, transform .1s;
+  }
+  .otp-inputs input:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 4px rgba(0,113,227,.10)}
+  .otp-inputs input.filled{border-color:var(--accent);background:#eef4ff;color:var(--accent-deep)}
+
+  .btn-primary{
+    width:100%;padding:15px 20px;border-radius:14px;border:0;cursor:pointer;
+    font:600 15px/1 "Inter",sans-serif;color:#fff;
+    background:var(--brand-grad);background-size:180% 180%;background-position:0% 50%;
+    box-shadow:0 12px 28px -10px rgba(99,102,241,.55), 0 4px 10px -4px rgba(0,113,227,.35);
+    transition:background-position .4s ease, transform .1s ease, box-shadow .2s ease;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .btn-primary:hover{background-position:100% 50%;box-shadow:0 16px 36px -10px rgba(99,102,241,.65), 0 6px 14px -4px rgba(0,113,227,.40)}
+  .btn-primary:active{transform:translateY(1px)}
+  .btn-primary:disabled{opacity:.6;cursor:not-allowed}
+
+  .login-card .links{margin-top:14px;text-align:center;font-size:12.5px;color:var(--muted)}
+  .login-card .links a{color:var(--accent);font-weight:600}
+  .login-card .divider{display:flex;align-items:center;gap:12px;margin:22px 0 14px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+  .login-card .divider::before,.login-card .divider::after{content:"";flex:1;height:1px;background:var(--line)}
+  .signup-cta{
+    padding:14px 16px;border-radius:14px;background:var(--brand-grad-soft);
+    border:1px solid rgba(99,102,241,.18);font-size:12.5px;color:#0a2540;line-height:1.55;text-align:center;
+  }
+  .signup-cta strong{color:#0a2540}
+  .signup-cta a{color:#4338ca;font-weight:700}
+
+  @media (max-width:820px){
+    .login-shell{grid-template-columns:1fr;max-width:440px}
+    .login-hero{padding:32px 26px}
+    .login-hero h1{font-size:34px}
+    .login-card{padding:32px 24px}
+  }
 
   @media (max-width:880px){
     #app{grid-template-columns:1fr}
@@ -156,51 +333,113 @@
 
 <!-- ════════════════════ LOGIN ════════════════════ -->
 <div id="login" class="hidden">
-  <div class="card big">
-    <h2 style="font-size:22px;text-align:center;margin-bottom:6px">Cortex Surgery Planner</h2>
-    <p class="sub" style="text-align:center;margin-bottom:20px">Sign in with your Sushruta account — same email & OTP as the Sushruta app</p>
+  <div class="login-shell">
 
-    <!-- Step 1: email → send OTP -->
-    <div id="otpStep1">
-      <div class="field">
-        <label>Email</label>
-        <input id="loginEmail" type="email" placeholder="dr@example.com" autocomplete="email" />
+    <!-- ── Hero / brand side ── -->
+    <section class="login-hero">
+      <div>
+        <div class="logo-wrap">
+          <img src="/static/logo.png" alt="Cortex Surgery logo" onerror="this.style.display='none'" />
+          <div class="mark">
+            Cortex Surgery <span class="ai-chip">AI</span>
+            <span class="sub">Smart AI Planner · NEET SS</span>
+          </div>
+        </div>
+
+        <h1>Your <span class="g">Smart AI&nbsp;Planner</span><br/>for NEET SS surgery.</h1>
+        <p class="tagline">
+          Adaptive day-by-day schedules. Bayesian mastery tracking.
+          Spaced recall that never forgets. An AI coach that debriefs
+          every mock and rebuilds the plan while you sleep.
+        </p>
+
+        <div class="feat-list">
+          <div class="f">
+            <div class="ico">🧠</div>
+            <div><strong>BKT mastery engine</strong>Tracks per-topic knowledge probabilities from every question you attempt.</div>
+          </div>
+          <div class="f">
+            <div class="ico">🌙</div>
+            <div><strong>Nightly replan at 3 AM IST</strong>Wake up to a plan that already accounts for yesterday's performance.</div>
+          </div>
+          <div class="f">
+            <div class="ico">💬</div>
+            <div><strong>Claude-powered coach</strong>Ask anything. Get a mock debrief. Understand your weakest topic.</div>
+          </div>
+          <div class="f">
+            <div class="ico">📈</div>
+            <div><strong>Readiness score + runway</strong>Know exactly how many days to mastery at your current pace.</div>
+          </div>
+        </div>
       </div>
-      <button id="sendOtpBtn" class="btn" style="width:100%;justify-content:center" onclick="sendOtp()">Send OTP</button>
-    </div>
 
-    <!-- Step 2: OTP entry → verify -->
-    <div id="otpStep2" class="hidden">
-      <p class="sub" style="margin-bottom:10px">
-        We emailed a 4-digit OTP to <strong id="otpEmailEcho"></strong>.
-        It expires in 2 minutes.
-      </p>
-      <div class="field">
-        <label>OTP</label>
-        <input id="loginOtp" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6"
-               placeholder="••••" autocomplete="one-time-code"
-               style="text-align:center;font-size:22px;letter-spacing:8px" />
+      <div class="foot">
+        <span class="tag">Federated with Sushruta LGS</span>
+        <span class="tag">Powered by Claude</span>
+        <span class="tag">FSRS · BKT · FastAPI</span>
       </div>
-      <button id="verifyOtpBtn" class="btn" style="width:100%;justify-content:center" onclick="verifyOtp()">Verify & sign in</button>
-      <p class="sub" style="text-align:center;margin-top:10px">
-        <a href="#" onclick="event.preventDefault();backToEmail()">Use a different email</a>
-        &nbsp;·&nbsp;
-        <a href="#" onclick="event.preventDefault();sendOtp(true)">Resend OTP</a>
-      </p>
-    </div>
+    </section>
 
-    <p class="sub" style="text-align:center;margin-top:14px">
-      Don't have a Sushruta account?
-      <a href="https://sushruta.ai" target="_blank" rel="noopener">Create one at sushruta.ai</a>
-      — the same account works in the Sushruta app and here.
-    </p>
+    <!-- ── Auth card ── -->
+    <section class="login-card">
+      <span class="badge"><span class="dot"></span> Secure sign-in</span>
+      <h2>Welcome back</h2>
+      <p class="lead">Sign in with your Sushruta LGS mobile number. We'll SMS a 4-digit OTP via MSG91.</p>
+
+      <!-- Step 1: mobile → send OTP -->
+      <div id="otpStep1">
+        <div class="phone-field">
+          <label>Mobile number</label>
+          <div class="input-wrap">
+            <div class="cc"><span class="flag">🇮🇳</span> +91</div>
+            <input id="loginPhone" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="10"
+                   placeholder="98765 43210" autocomplete="tel-national"
+                   oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)" />
+          </div>
+        </div>
+        <button id="sendOtpBtn" class="btn-primary" onclick="sendOtp()">Send OTP →</button>
+      </div>
+
+      <!-- Step 2: OTP entry → verify -->
+      <div id="otpStep2" class="hidden">
+        <p class="lead" style="margin-bottom:16px">
+          We SMS'd a 4-digit OTP to <strong id="otpPhoneEcho" style="color:var(--accent-deep)"></strong>.
+          Expires in <span id="otpCountdown">02:00</span>.
+        </p>
+        <div class="otp-inputs" onpaste="handleOtpPaste(event)">
+          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-otp="0" />
+          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-otp="1" />
+          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-otp="2" />
+          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-otp="3" />
+        </div>
+        <button id="verifyOtpBtn" class="btn-primary" onclick="verifyOtp()">Verify & sign in</button>
+        <p class="links">
+          <a href="#" onclick="event.preventDefault();backToPhone()">Use a different number</a>
+          &nbsp;·&nbsp;
+          <a href="#" id="resendLink" onclick="event.preventDefault();sendOtp(true)">Resend OTP</a>
+        </p>
+      </div>
+
+      <div class="divider">New here?</div>
+      <div class="signup-cta">
+        Don't have a <strong>Sushruta LGS App</strong> Account?
+        <a href="https://cortexsurgery.ai" target="_blank" rel="noopener">Create one at cortexsurgery.ai</a>
+        — the same account works in the Sushruta LGS app and here.
+      </div>
+    </section>
   </div>
 </div>
 
 <!-- ════════════════════ APP SHELL ════════════════════ -->
 <div id="app" class="hidden">
   <aside id="sidebar">
-    <div class="brand"><span class="dot"></span> Cortex</div>
+    <div class="brand">
+      <img class="logo" src="/static/logo.png" alt="Cortex Surgery" onerror="this.style.display='none'" />
+      <div class="wordmark">
+        <div class="name">Cortex Surgery<span class="ai">AI</span></div>
+        <div class="tag">Smart AI Planner · NEET SS</div>
+      </div>
+    </div>
     <nav class="nav">
       <button data-tab="dashboard" class="active"><span class="icon">🏠</span> Dashboard</button>
       <button data-tab="planner"><span class="icon">📋</span> Planner</button>
@@ -285,42 +524,86 @@ async function api(path, opts = {}) {
   return r.json();
 }
 
-// ───── OTP login (same flow as the Sushruta app — sendOtpMail + LoginWithOtp)
+// ───── SMS OTP login (MSG91 via /api/sendOtpViaSms + /api/loginViaSms)
+let _otpCountdownTimer = null;
+
+function _normalizePhone() {
+  return (document.getElementById('loginPhone').value || '').replace(/\D/g, '').slice(0, 10);
+}
+function _collectOtp() {
+  const boxes = document.querySelectorAll('.otp-inputs input');
+  return Array.from(boxes).map(i => i.value.trim()).join('');
+}
+function _clearOtp() {
+  document.querySelectorAll('.otp-inputs input').forEach(i => { i.value = ''; i.classList.remove('filled'); });
+}
+function _startCountdown(sec = 120) {
+  if (_otpCountdownTimer) clearInterval(_otpCountdownTimer);
+  const el = document.getElementById('otpCountdown');
+  const resend = document.getElementById('resendLink');
+  let remaining = sec;
+  if (resend) { resend.style.pointerEvents = 'none'; resend.style.opacity = '.5'; }
+  const tick = () => {
+    const m = String(Math.floor(remaining/60)).padStart(2,'0');
+    const s = String(remaining%60).padStart(2,'0');
+    if (el) el.textContent = `${m}:${s}`;
+    if (remaining <= 0) {
+      clearInterval(_otpCountdownTimer);
+      if (resend) { resend.style.pointerEvents = ''; resend.style.opacity = ''; }
+      if (el) el.textContent = 'expired';
+      return;
+    }
+    remaining -= 1;
+  };
+  tick();
+  _otpCountdownTimer = setInterval(tick, 1000);
+}
+function handleOtpPaste(e) {
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  const digits = (text || '').replace(/\D/g,'').slice(0,4);
+  if (digits.length >= 1) {
+    e.preventDefault();
+    const boxes = document.querySelectorAll('.otp-inputs input');
+    digits.split('').forEach((d,i) => { if (boxes[i]) { boxes[i].value = d; boxes[i].classList.add('filled'); }});
+    if (digits.length === 4) verifyOtp();
+  }
+}
+
 async function sendOtp(isResend = false) {
-  const email = (document.getElementById('loginEmail').value || '').trim().toLowerCase();
-  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    toast('Enter a valid email');
+  const phone = _normalizePhone();
+  if (phone.length !== 10) {
+    toast('Enter a valid 10-digit mobile number');
     return;
   }
   const btn = document.getElementById('sendOtpBtn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending OTP…'; }
   try {
     const r = await fetch('/api/auth/send-otp', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({email}),
+      body: JSON.stringify({phone}),
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      toast(data.detail || 'Could not send OTP');
-      return;
-    }
-    document.getElementById('otpEmailEcho').textContent = email;
+    if (!r.ok) { toast(data.detail || 'Could not send OTP'); return; }
+    document.getElementById('otpPhoneEcho').textContent = '+91 ' + phone.replace(/(\d{5})(\d{5})/, '$1 $2');
     document.getElementById('otpStep1').classList.add('hidden');
     document.getElementById('otpStep2').classList.remove('hidden');
-    document.getElementById('loginOtp').focus();
-    toast(isResend ? 'OTP re-sent' : 'OTP sent to your email');
+    _clearOtp();
+    _startCountdown(120);
+    const first = document.querySelector('.otp-inputs input');
+    if (first) first.focus();
+    toast(isResend ? 'OTP re-sent via SMS' : 'OTP sent to your mobile');
   } catch(e) {
     toast('Network error: ' + e.message);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Send OTP'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Send OTP →'; }
   }
 }
 
 async function verifyOtp() {
-  const email = (document.getElementById('loginEmail').value || '').trim().toLowerCase();
-  const otp = (document.getElementById('loginOtp').value || '').trim();
-  if (!otp) { toast('Enter the OTP'); return; }
+  const phone = _normalizePhone();
+  const otp = _collectOtp();
+  if (otp.length !== 4) { toast('Enter the 4-digit OTP'); return; }
   const btn = document.getElementById('verifyOtpBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
   try {
@@ -328,7 +611,7 @@ async function verifyOtp() {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
-        email,
+        phone,
         otp,
         device_type: 'desktop',
         device_id: 'cortex-web',
@@ -344,6 +627,7 @@ async function verifyOtp() {
     if (!r.ok) { toast(data.detail || 'Invalid OTP'); return; }
     token = data.token || (data.lms_response && data.lms_response.token);
     if (!token) { toast('No token returned from LMS'); return; }
+    if (_otpCountdownTimer) clearInterval(_otpCountdownTimer);
     localStorage.setItem(TOKEN_KEY, token);
     showApp();
     refreshAll();
@@ -354,12 +638,31 @@ async function verifyOtp() {
   }
 }
 
-function backToEmail() {
+function backToPhone() {
   document.getElementById('otpStep2').classList.add('hidden');
   document.getElementById('otpStep1').classList.remove('hidden');
-  document.getElementById('loginOtp').value = '';
-  document.getElementById('loginEmail').focus();
+  if (_otpCountdownTimer) clearInterval(_otpCountdownTimer);
+  _clearOtp();
+  document.getElementById('loginPhone').focus();
 }
+
+// Auto-advance between OTP boxes and submit on complete
+document.addEventListener('DOMContentLoaded', function() {
+  const boxes = document.querySelectorAll('.otp-inputs input');
+  boxes.forEach((box, idx) => {
+    box.addEventListener('input', () => {
+      box.value = box.value.replace(/\D/g,'').slice(0,1);
+      if (box.value) box.classList.add('filled'); else box.classList.remove('filled');
+      if (box.value && boxes[idx+1]) boxes[idx+1].focus();
+      if (idx === boxes.length - 1 && _collectOtp().length === 4) setTimeout(verifyOtp, 120);
+    });
+    box.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !box.value && boxes[idx-1]) boxes[idx-1].focus();
+    });
+  });
+  const phoneInput = document.getElementById('loginPhone');
+  if (phoneInput) phoneInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendOtp(); });
+});
 
 function logout() {
   localStorage.removeItem(TOKEN_KEY); token = '';

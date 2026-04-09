@@ -219,29 +219,48 @@ def get_cohort_stats(token: str, exam_type: str = "NEET_SS") -> Dict[str, Any]:
     return _get_json(token, "/api/planner/cohort-stats", {"exam_type": exam_type})
 
 
-def send_otp_email(email: str) -> Dict[str, Any]:
-    """Step 1 of OTP login — asks the LMS to email a 4-digit OTP."""
+def _normalize_phone(phone: str) -> str:
+    """Strip spaces, dashes, parens and a leading +91/91/0 — LMS expects
+    the raw 10-digit local number, then hardcodes the 91 country prefix
+    in the MSG91 request itself (see wati.controller.js)."""
+    if not phone:
+        return ""
+    p = "".join(ch for ch in str(phone) if ch.isdigit())
+    if len(p) > 10 and p.startswith("91"):
+        p = p[2:]
+    if len(p) == 11 and p.startswith("0"):
+        p = p[1:]
+    return p
+
+
+def send_otp_sms(phone: str) -> Dict[str, Any]:
+    """Step 1 of mobile OTP login — asks the LMS to SMS a 4-digit OTP via MSG91.
+    Mirrors the same endpoint the Sushruta mobile/web app already calls."""
+    phone = _normalize_phone(phone)
+    if len(phone) != 10:
+        raise LmsError("phone must be a 10-digit mobile number")
     try:
         with _client() as c:
-            r = c.post("/api/user/sendOtpMail", json={"email": email})
+            r = c.post("/api/sendOtpViaSms", json={"phone": phone})
         if r.status_code != 200:
-            raise LmsError(f"sendOtpMail http {r.status_code}: {r.text[:200]}")
+            raise LmsError(f"sendOtpViaSms http {r.status_code}: {r.text[:200]}")
         return r.json()
     except httpx.HTTPError as e:
-        raise LmsError(f"sendOtpMail network: {e}") from e
+        raise LmsError(f"sendOtpViaSms network: {e}") from e
 
 
-def login_with_otp(
-    email: str,
+def login_via_sms(
+    phone: str,
     otp: str,
     device_type: str = "desktop",
     device_id: str = "cortex-web",
     device_name: str = "Cortex Web",
     device_unique_id: str = "cortex-web",
 ) -> Dict[str, Any]:
-    """Step 2 of OTP login — verifies OTP and returns an LMS session token."""
+    """Step 2 of mobile OTP login — verifies SMS OTP and returns an LMS
+    session token. Mirrors the endpoint the Sushruta app already calls."""
     body = {
-        "email": email,
+        "phone": _normalize_phone(phone),
         "userOTP": str(otp),
         "deviceType": device_type,
         "deviceId": device_id,
@@ -250,12 +269,12 @@ def login_with_otp(
     }
     try:
         with _client() as c:
-            r = c.post("/api/user/LoginWithOtp", json=body)
+            r = c.post("/api/loginViaSms", json=body)
         if r.status_code != 200:
-            raise LmsError(f"LoginWithOtp http {r.status_code}: {r.text[:200]}")
+            raise LmsError(f"loginViaSms http {r.status_code}: {r.text[:200]}")
         return r.json()
     except httpx.HTTPError as e:
-        raise LmsError(f"LoginWithOtp network: {e}") from e
+        raise LmsError(f"loginViaSms network: {e}") from e
 
 
 def emit_planner_event(token: str, event_type: str, payload: Dict[str, Any]) -> Dict[str, Any]:
