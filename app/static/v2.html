@@ -725,6 +725,7 @@ async function refreshAll() {
   const fetchers = {
     plan: api('/api/plans/current').catch(()=>null),
     inclusions: api('/api/plans/inclusions').catch(()=>null),
+    library: api('/api/library/summary').catch(()=>null),
     signal: api('/api/signal').catch(()=>null),
     mastery: api('/api/ml/mastery').catch(()=>null),
     streak: api('/api/streak').catch(()=>null),
@@ -799,6 +800,7 @@ function renderDashboard() {
       ${statCard('Min/day (14d)', Math.round((state.streak && state.streak.avg_minutes_last_14d) || 0), 'rolling avg')}
     </div>
 
+    ${renderLibraryCard(state.library)}
     ${renderPlanInclusionsCard(state.inclusions)}
 
     <div class="card" style="margin-top:20px">
@@ -853,6 +855,73 @@ function renderDashboard() {
 
 function statCard(label, value, sub) {
   return '<div class="card"><div class="stat"><div class="num">'+value+'</div><div class="lab">'+label+'</div>'+(sub?'<div class="delta">'+sub+'</div>':'')+'</div></div>';
+}
+
+function renderLibraryCard(lib) {
+  if (!lib || !lib.has_bundle) {
+    return `
+      <div class="card" style="margin-top:20px">
+        <h2>Your Sushruta library</h2>
+        <div class="sub">${lib && lib.error ? escapeHtml(lib.error) : 'Could not load your content library from the Sushruta LMS. If this persists, make sure your subscription is active and refresh.'}</div>
+      </div>`;
+  }
+  const t = lib.totals || {};
+  const cats = lib.by_category || [];
+  const top = lib.top_topics || [];
+
+  const pill = (icon, num, label, color) => `
+    <div style="flex:1;min-width:140px;padding:16px;border-radius:14px;background:linear-gradient(135deg, ${color}14 0%, ${color}06 100%);border:1px solid ${color}22">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:26px">${icon}</div>
+        <div>
+          <div style="font-size:26px;font-weight:700;letter-spacing:-0.5px;color:${color}">${num.toLocaleString()}</div>
+          <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">${label}</div>
+        </div>
+      </div>
+    </div>`;
+
+  const catRow = (c) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px">
+      <span style="font-weight:600;flex:1">${escapeHtml(c.category)}</span>
+      <span style="color:var(--muted);display:flex;gap:14px">
+        <span>🎬 ${c.videos}</span>
+        <span>📖 ${c.notes}</span>
+        <span>🎯 ${c.mcqs}</span>
+      </span>
+    </div>`;
+
+  const topRow = (t) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:12px">
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(t.name)}</span>
+      <span style="color:var(--muted);margin-left:8px">${t.videos+t.notes+t.mcqs}</span>
+    </div>`;
+
+  return `
+    <div class="card big" style="margin-top:20px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+        <div>
+          <h2>Your Sushruta library</h2>
+          <div class="sub">Everything in your app the planner will build from · ${t.topics} topics across ${t.categories} categories</div>
+        </div>
+        <span class="pill green" style="font-size:11px">Live from Sushruta LMS</span>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap">
+        ${pill('🎬', t.videos || 0, 'Videos',       '#0071e3')}
+        ${pill('📖', t.notes  || 0, 'Note decks',   '#34c759')}
+        ${pill('🎯', t.mcqs   || 0, 'MCQ questions','#ff9500')}
+        ${pill('📝', t.mocks  || 0, 'Mock exams',   '#af52de')}
+      </div>
+      <div class="grid grid-2" style="margin-top:18px">
+        <div>
+          <div style="font-size:12px;font-weight:600;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin-bottom:6px">By category</div>
+          ${cats.length ? cats.map(catRow).join('') : '<div class="sub">No categories returned.</div>'}
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:600;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin-bottom:6px">Richest topics</div>
+          ${top.length ? top.map(topRow).join('') : '<div class="sub">No topics available.</div>'}
+        </div>
+      </div>
+    </div>`;
 }
 
 function renderPlanInclusionsCard(inc) {

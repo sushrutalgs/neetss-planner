@@ -468,6 +468,118 @@ def _count_plan_inclusions(days: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
+@router.get("/library/summary")
+def library_summary(
+    lms_user: LmsUser = Depends(enforce_subscription),
+    db: Session = Depends(get_db),
+):
+    """
+    "What's in my Sushruta app" snapshot — the library the planner will
+    draw from when you generate a plan. Walks the syllabus bundle once
+    and counts every unique piece of content the LMS exposes to this user.
+
+    Returns:
+      {
+        has_bundle, bundle_version,
+        totals: {
+          videos, notes, mcqs, mocks, topics, subcategories, categories,
+          total_content
+        },
+        by_category: [
+          { category, topics, videos, notes, mcqs, mocks }
+        ],
+        top_topics: [
+          { topic_id, name, category, videos, notes, mcqs }
+        ]
+      }
+    """
+    try:
+        bundle = get_syllabus_bundle(lms_user.token) or {}
+    except LmsError as e:
+        logger.warning("[library/summary] bundle fetch failed: %s", e)
+        return {"has_bundle": False, "error": str(e)}
+
+    categories = bundle.get("categories") or []
+    if not categories:
+        return {"has_bundle": False}
+
+    total_videos: set = set()
+    total_notes: set = set()
+    total_mcqs = 0
+    total_mocks: set = set()
+    total_topics = 0
+    total_subcats = 0
+
+    by_category: List[Dict[str, Any]] = []
+    topic_rows: List[Dict[str, Any]] = []
+
+    for cat in categories:
+        cat_name = cat.get("name") or cat.get("category_name") or "Uncategorised"
+        cat_videos: set = set()
+        cat_notes: set = set()
+        cat_mcqs = 0
+        cat_mocks: set = set()
+        cat_topics = 0
+        for sub in cat.get("subcategories") or []:
+            total_subcats += 1
+            for topic in sub.get("topics") or []:
+                cat_topics += 1
+                total_topics += 1
+                cids = topic.get("content_ids") or {}
+                counts = topic.get("content_counts") or {}
+                vids = cids.get("videos") or []
+                nts = cids.get("notes") or []
+                mqs_cnt = int(counts.get("mcqs") or len(cids.get("mcqs") or []))
+                for v in vids:
+                    total_videos.add(str(v)); cat_videos.add(str(v))
+                for n in nts:
+                    total_notes.add(str(n)); cat_notes.add(str(n))
+                cat_mcqs += mqs_cnt
+                total_mcqs += mqs_cnt
+                topic_rows.append({
+                    "topic_id": str(topic.get("_id") or topic.get("id") or ""),
+                    "name": topic.get("name") or topic.get("topic_name") or "",
+                    "category": cat_name,
+                    "videos": len(vids),
+                    "notes": len(nts),
+                    "mcqs": mqs_cnt,
+                })
+        by_category.append({
+            "category": cat_name,
+            "topics": cat_topics,
+            "videos": len(cat_videos),
+            "notes": len(cat_notes),
+            "mcqs": cat_mcqs,
+            "mocks": len(cat_mocks),
+        })
+
+    for mk in bundle.get("mocks_global") or []:
+        total_mocks.add(str(mk.get("_id") or mk.get("id") or mk.get("title") or len(total_mocks)))
+
+    top_topics = sorted(
+        topic_rows,
+        key=lambda t: (t["videos"] + t["notes"] + t["mcqs"]),
+        reverse=True,
+    )[:8]
+
+    return {
+        "has_bundle": True,
+        "bundle_version": bundle.get("version"),
+        "totals": {
+            "videos": len(total_videos),
+            "notes": len(total_notes),
+            "mcqs": total_mcqs,
+            "mocks": len(total_mocks),
+            "topics": total_topics,
+            "subcategories": total_subcats,
+            "categories": len(categories),
+            "total_content": len(total_videos) + len(total_notes) + total_mcqs + len(total_mocks),
+        },
+        "by_category": by_category,
+        "top_topics": top_topics,
+    }
+
+
 @router.get("/plans/inclusions")
 def plans_inclusions(
     lms_user: LmsUser = Depends(enforce_subscription),
