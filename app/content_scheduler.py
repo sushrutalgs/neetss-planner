@@ -117,9 +117,11 @@ def _topic_score(
       - coverage gap
     """
     tid = str(topic.get("_id") or topic.get("id"))
-    m = mastery.get(tid, {})
-    mastery_score = m.get("mastery", 0.0)
-    days_idle = m.get("last_studied_days_ago", 999)
+    m = mastery.get(tid) or {}
+    # Defensive: the LMS signal can send nulls when a topic has never been touched.
+    # Using `or <default>` collapses both "missing key" and "present but None".
+    mastery_score = float(m.get("mastery") or 0.0)
+    days_idle = float(m.get("last_studied_days_ago") or 999)
 
     priority = _priority_weight(topic.get("priority_label"))
     weakness_bump = (1.0 - mastery_score) * 2.0
@@ -151,7 +153,7 @@ def _build_read_block(
 
     # Estimated time per note: prefer per-note metadata, fall back to topic average
     est = topic.get("est_minutes", {}) or {}
-    avg_per_note = max(8, int(est.get("read", 22) / max(1, len(notes))))
+    avg_per_note = max(8, int((est.get("read") or 22) / max(1, len(notes))))
     avg_per_note = int(avg_per_note * user_multiplier)
 
     items = []
@@ -202,7 +204,7 @@ def _build_watch_block(
         return None
 
     est = topic.get("est_minutes", {}) or {}
-    avg_per_video = max(6, int(est.get("watch", 20) / max(1, len(videos))))
+    avg_per_video = max(6, int((est.get("watch") or 20) / max(1, len(videos))))
     avg_per_video = int(avg_per_video * user_multiplier)
 
     items = []
@@ -245,13 +247,13 @@ def _build_practice_block(
     user_multiplier: float,
 ) -> Optional[Dict[str, Any]]:
     counts = topic.get("content_counts") or {}
-    available = counts.get("mcqs", 0)
+    available = int(counts.get("mcqs") or 0)
     if available <= 0:
         return None
 
     tid = str(topic.get("_id"))
-    m = mastery.get(tid, {})
-    score = m.get("mastery", 0.0)
+    m = mastery.get(tid) or {}
+    score = float(m.get("mastery") or 0.0)
     # Weak topics → bigger sets, strong topics → small spaced sets.
     if score < 0.4:
         target_count = 50

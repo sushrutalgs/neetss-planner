@@ -724,6 +724,24 @@ def plans_generate(
     lms_user: LmsUser = Depends(enforce_subscription),
     db: Session = Depends(get_db),
 ):
+    try:
+        return _plans_generate_impl(payload, lms_user, db)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        logger.error("[plans/generate] crashed: %s\n%s", e, traceback.format_exc())
+        raise HTTPException(
+            500,
+            f"Could not generate the plan. The LMS may be slow right now — please retry in a moment. ({type(e).__name__}: {e})"
+        )
+
+
+def _plans_generate_impl(
+    payload: "GeneratePlanRequest",
+    lms_user: LmsUser,
+    db: Session,
+):
     user = _get_or_create_local_user(db, lms_user)
 
     bundle: Dict[str, Any] = {}

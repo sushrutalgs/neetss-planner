@@ -800,8 +800,7 @@ function renderDashboard() {
       ${statCard('Min/day (14d)', Math.round((state.streak && state.streak.avg_minutes_last_14d) || 0), 'rolling avg')}
     </div>
 
-    ${renderLibraryCard(state.library)}
-    ${renderPlanInclusionsCard(state.inclusions)}
+    ${renderPlanContentCard(state.inclusions, state.library)}
 
     <div class="card" style="margin-top:20px">
       <h2>What to do next</h2>
@@ -855,6 +854,113 @@ function renderDashboard() {
 
 function statCard(label, value, sub) {
   return '<div class="card"><div class="stat"><div class="num">'+value+'</div><div class="lab">'+label+'</div>'+(sub?'<div class="delta">'+sub+'</div>':'')+'</div></div>';
+}
+
+// Unified card: when a plan exists, show the content IN the plan (scoped to
+// the user's Sushruta subscription). When no plan yet, preview the subscribed
+// library as "what your plan will be built from" with a CTA to generate.
+function renderPlanContentCard(inc, lib) {
+  const hasPlan = inc && inc.has_plan;
+  if (hasPlan) {
+    const t = inc.totals || {};
+    const c = inc.consumed || {};
+    const p = inc.progress || {};
+    const today = inc.today || {};
+    const bar = (pct, color) => `<span class="bar" style="flex:1"><i style="width:${pct}%;background:${color}"></i></span>`;
+    const row = (icon, label, done, total, pct, color) => `
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)">
+        <div style="font-size:22px;width:32px;text-align:center">${icon}</div>
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+            <span style="font-weight:600">${label}</span>
+            <span style="color:var(--muted)">${done} / ${total}</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            ${bar(pct, color)}
+            <span style="font-size:12px;font-weight:600;width:38px;text-align:right">${pct}%</span>
+          </div>
+        </div>
+      </div>`;
+
+    const kindIcon = { read: '📖', watch: '🎬', practice: '🎯', mock: '📝', recall: '🧠' };
+    const todayBlocks = (today.blocks || []).slice(0, 6).map(b => `
+      <div class="block">
+        <div style="flex:1">
+          <div class="title">${(kindIcon[b.kind]||'•')} ${escapeHtml(b.title || b.kind || '')}</div>
+          <div class="why">${b.done ? '✓ completed' : 'pending'}</div>
+        </div>
+        <div class="right"><span class="kind ${b.kind||''}">${b.kind||''}</span><span class="min">${b.minutes||0} min</span></div>
+      </div>`).join('') || '<p class="sub">No blocks scheduled today — rest day, or pull a fresh plan.</p>';
+
+    return `
+      <div class="grid grid-2" style="margin-top:20px">
+        <div class="card big">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <h2>Your plan content</h2>
+              <div class="sub">${t.videos||0} videos · ${t.notes||0} note decks · ${t.mcqs_target||((t.mcq_sets||0)*10)} MCQs · ${t.mocks||0} mocks — all from your Sushruta subscription</div>
+            </div>
+            <div style="text-align:right">
+              <div class="num" style="font-size:34px;line-height:1">${p.overall_pct || 0}%</div>
+              <div class="lab">done</div>
+            </div>
+          </div>
+          <div style="margin-top:14px">
+            ${row('🎬', 'Videos watched',  c.videos_watched || 0, t.videos || 0,                               p.videos_pct || 0, '#0071e3')}
+            ${row('📖', 'Notes opened',    c.notes_opened   || 0, t.notes || 0,                                p.notes_pct  || 0, '#34c759')}
+            ${row('🎯', 'MCQs attempted',  c.mcqs_attempted || 0, t.mcqs_target || (t.mcq_sets||0)*10,         p.mcqs_pct   || 0, '#ff9500')}
+            ${row('📝', 'Mocks taken',     c.mocks_done     || 0, t.mocks || 0,                                p.mocks_pct  || 0, '#af52de')}
+          </div>
+          <p style="font-size:12px;color:var(--muted);margin-top:12px">
+            Progress updates live as you watch, read and practice inside your Sushruta app.
+          </p>
+        </div>
+        <div class="card big">
+          <h2>Today's targets</h2>
+          <div class="sub">${today.minutes_planned || 0} min planned · ${today.completed_blocks || 0} of ${today.total_blocks || 0} blocks done · day ${inc.days_elapsed||0} of ${inc.days_total||0}</div>
+          <div style="margin-top:10px">${todayBlocks}</div>
+        </div>
+      </div>`;
+  }
+
+  // No plan yet — preview the subscribed library and push the user to Generate.
+  if (!lib || !lib.has_bundle) {
+    return `
+      <div class="card" style="margin-top:20px">
+        <h2>Your plan content</h2>
+        <div class="sub">${lib && lib.error ? escapeHtml(lib.error) : "You don't have an active plan yet. Head to the Planner tab and generate one — we'll build your day-by-day schedule from the videos, notes, MCQs and mocks in your Sushruta subscription."}</div>
+      </div>`;
+  }
+  const t = lib.totals || {};
+  const pill = (icon, num, label, color) => `
+    <div style="flex:1;min-width:140px;padding:16px;border-radius:14px;background:linear-gradient(135deg, ${color}14 0%, ${color}06 100%);border:1px solid ${color}22">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:26px">${icon}</div>
+        <div>
+          <div style="font-size:26px;font-weight:700;letter-spacing:-0.5px;color:${color}">${(num||0).toLocaleString()}</div>
+          <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">${label}</div>
+        </div>
+      </div>
+    </div>`;
+  return `
+    <div class="card big" style="margin-top:20px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+        <div>
+          <h2>Available in your Sushruta subscription</h2>
+          <div class="sub">Content the planner can build your schedule from · ${t.topics||0} topics across ${t.categories||0} categories</div>
+        </div>
+        <button class="btn sm" onclick="document.querySelector('[data-tab=planner]').click()">Generate plan →</button>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap">
+        ${pill('🎬', t.videos || 0, 'Videos',       '#0071e3')}
+        ${pill('📖', t.notes  || 0, 'Note decks',   '#34c759')}
+        ${pill('🎯', t.mcqs   || 0, 'MCQ questions','#ff9500')}
+        ${pill('📝', t.mocks  || 0, 'Mock exams',   '#af52de')}
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-top:14px">
+        Once you generate a plan, this card flips to show your real progress through it.
+      </p>
+    </div>`;
 }
 
 function renderLibraryCard(lib) {
