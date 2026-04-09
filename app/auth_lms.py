@@ -63,6 +63,21 @@ def _cache_put(token: str, data: dict) -> None:
     _USER_STATE_CACHE[_hash(token)] = (time.time() + _CACHE_TTL_S, data)
 
 
+def get_user_state_cached(token: str) -> dict:
+    """
+    Public helper for other modules (notably app.auth's dual-token shim)
+    that want to hit the LMS user-state endpoint while sharing this module's
+    30-second in-process cache. Raises LmsError on LMS failure.
+    """
+    state = _cache_get(token)
+    if state is not None:
+        return state
+    state = get_user_state(token)  # raises LmsError on LMS failure
+    if state and state.get("user_id"):
+        _cache_put(token, state)
+    return state or {}
+
+
 @dataclass
 class LmsUser:
     """Resolved identity for the duration of one request."""
