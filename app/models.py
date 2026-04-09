@@ -61,8 +61,22 @@ class Plan(Base):
     content_bundle_etag = Column(String(64), nullable=True)
     ai_rationale_md = Column(Text, nullable=True)  # Sonnet plan-rationale narrative
 
+    # ───── Phase 2: explicit date window (replaces exam_date semantics) ─────
+    # start_date and end_date are the canonical plan window. The old exam_date
+    # is still readable from config_json for legacy plans but new plans use
+    # these columns so the nightly replan job can query active plans cheaply.
+    start_date = Column(Date, nullable=True, index=True)
+    end_date = Column(Date, nullable=True, index=True)
+    daily_minutes = Column(Integer, nullable=True)  # target minutes/day from generator
+    is_archived = Column(Boolean, default=False, nullable=False, index=True)
+    last_replan_at = Column(DateTime, nullable=True)
+
     user = relationship("User", back_populates="plans")
     progress = relationship("Progress", back_populates="plan", uselist=False, cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index("ix_plan_user_active", "user_id", "is_archived", "end_date"),
+    )
 
 
 class Progress(Base):

@@ -338,11 +338,35 @@ def _build_recall_block(due_cards: List[Dict[str, Any]]) -> Optional[Dict[str, A
 @dataclass
 class SchedulerConfig:
     start_date: date
-    exam_date: date
+    # end_date is the canonical plan window terminus (was `exam_date` in the
+    # old API; we keep `exam_date` as an alias property below for back-compat
+    # with any callers still passing it as a kwarg).
+    end_date: date
     hours_per_day: float = 4.0
     rest_days_per_week: int = 1   # 0..2
     custom_rest_dates: List[date] = field(default_factory=list)
     use_lms_content: bool = True
+    # New fields driven by the rich generator form on v2.html.
+    daily_minutes: Optional[int] = None      # explicit override; falls back to hours_per_day*60
+    mocks_count: Optional[int] = None        # cap on total mocks across the plan
+    min_per_mcq: float = 1.5                 # MCQ pacing knob
+    revision_rounds: int = 1                 # 1..3 — how many full passes through P1 in Revision/Final
+    focus_topic_ids: List[str] = field(default_factory=list)  # user-prioritised topic ids
+
+    @property
+    def exam_date(self) -> date:
+        """Back-compat alias — older callers and tests still reference exam_date."""
+        return self.end_date
+
+    @exam_date.setter
+    def exam_date(self, value: date) -> None:
+        self.end_date = value
+
+    @property
+    def effective_daily_minutes(self) -> int:
+        if self.daily_minutes is not None and self.daily_minutes > 0:
+            return int(self.daily_minutes)
+        return int(self.hours_per_day * 60)
 
 
 def flatten_topics(bundle: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -374,7 +398,7 @@ def build_schedule(
     user_multipliers: Optional[Dict[str, float]] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Return a list of day dicts from cfg.start_date through cfg.exam_date.
+    Return a list of day dicts from cfg.start_date through cfg.end_date.
     """
     mastery = mastery or {}
     due_recall_cards = due_recall_cards or []
@@ -389,7 +413,7 @@ def build_schedule(
     # back-to-back across days.
     rotation_idx = 0
 
-    days_total = (cfg.exam_date - cfg.start_date).days + 1
+    days_total = (cfg.end_date - cfg.start_date).days + 1
     days: List[Dict[str, Any]] = []
 
     # Coverage tracker — how many of each topic's content we've already scheduled
@@ -400,7 +424,7 @@ def build_schedule(
 
     for day_offset in range(days_total):
         d = cfg.start_date + timedelta(days=day_offset)
-        days_left = (cfg.exam_date - d).days
+        days_left = (cfg.end_date - d).days
 
         # Rest day handling
         if d in cfg.custom_rest_dates or _is_weekly_rest_day(d, cfg.rest_days_per_week):
@@ -417,7 +441,7 @@ def build_schedule(
         p1_coverage = _compute_p1_coverage(topics, used_content)
         phase = _phase_for_coverage(p1_coverage, days_left)
 
-        budget = int(cfg.hours_per_day * 60)
+        budget = cfg.effective_daily_minutes
         remaining = budget
         day_video_used = 0
         blocks: List[Dict[str, Any]] = []
@@ -521,14 +545,88 @@ def _build_chapter_only_schedule(cfg: SchedulerConfig) -> List[Dict[str, Any]]:
     """
     days = []
     d = cfg.start_date
-    while d <= cfg.exam_date:
+    while d <= cfg.end_date:
         days.append({
             "day": d.isoformat(),
             "phase": "Chapter-mode",
-            "time_budget_min": int(cfg.hours_per_day * 60),
+            "time_budget_min": cfg.effective_daily_minutes,
             "blocks": [],   # legacy planner fills this
             "checkpoint": {"expected_progress": None, "actual": None},
             "_chapter_only": True,
         })
         d += timedelta(days=1)
     return days
+
+
+# ════════════════════════════════════════════════════════════
+#  High-level orchestration — single entry point for callers
+# ════════════════════════════════════════════════════════════
+
+
+def build_schedule_from_signal(
+    bundle: Dict[str, Any],
+    cfg: SchedulerConfig,
+    user_signal: Optional[Dict[str, Any]] = None,
+    fsrs_cards_by_topic: Optional[Dict[str, Dict[str, Any]]] = None,
+    due_recall_cards: Optional[List[Dict[str, Any]]] = None,
+    user_multipliers: Optional[Dict[str, float]] = None,
+) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    """
+    The single entry point planner_v2.py calls when generating a plan.
+
+    Steps:
+      1. Build a blended mastery vector from `user_signal` + local FSRS cards
+         (calls into app.ai.mastery.build_vector — soft import so the legacy
+         scheduler still works without the AI subpackage).
+      2. Convert the vector into the {topic_id: dict} shape build_schedule
+         already accepts.
+      3. Call build_schedule with the enriched mastery + due cards.
+      4. Return (days, mastery_vector) so the caller can persist both.
+
+    The mastery vector is returned alongside so routers/planner_v2.py can
+    write it to TopicMastery rows in one shot — saves a re-computation.
+    """
+    # Soft import — keeps the scheduler usable in unit tests that don't have
+    # the AI extras installed.
+    try:
+        from app.ai.mastery import build_vector as _build_vector
+    except ImportError:  # pragma: no cover
+        _build_vector = None
+
+    flat_topics = flatten_topics(bundle) if bundle.get("categories") else []
+    if _build_vector is not None:
+        mastery_vector = _build_vector(
+            user_signal or {},
+            fsrs_cards_by_topic=fsrs_cards_by_topic or {},
+            bundle_topics=flat_topics,
+        )
+    else:
+        mastery_vector = {}
+
+    # Apply the user's manual focus_topic_ids — boosts gap by 0.2 (capped at 1)
+    # so the rotation picks them earlier without nuking the ML signal entirely.
+    for tid in cfg.focus_topic_ids or []:
+        row = mastery_vector.get(str(tid))
+        if row:
+            row["gap"] = round(min(1.0, (row.get("gap") or 0) + 0.2), 3)
+
+    # Shape the vector into what build_schedule's mastery dict expects.
+    legacy_mastery: Dict[str, Dict[str, Any]] = {}
+    for tid, row in mastery_vector.items():
+        drivers = row.get("drivers") or {}
+        legacy_mastery[str(tid)] = {
+            "mastery": float(row.get("mastery") or 0),
+            "accuracy": float(drivers.get("accuracy") or 0) / 100.0,
+            "last_studied_days_ago": drivers.get("days_since_last"),
+            "gap": float(row.get("gap") or 0),
+            "confidence": float(row.get("confidence") or 0),
+        }
+
+    days = build_schedule(
+        bundle=bundle,
+        cfg=cfg,
+        mastery=legacy_mastery,
+        due_recall_cards=due_recall_cards,
+        user_multipliers=user_multipliers,
+    )
+    return days, mastery_vector

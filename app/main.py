@@ -29,7 +29,18 @@ async def lifespan(app: FastAPI):
         print("✅ Database initialized successfully.")
     except Exception as e:
         print(f"⚠️ Database initialization failed: {e}")
+    try:
+        from app.jobs.scheduler import start_scheduler
+        start_scheduler()
+        print("✅ Background scheduler started.")
+    except Exception as e:
+        print(f"⚠️ Scheduler bootstrap failed: {e}")
     yield
+    try:
+        from app.jobs.scheduler import shutdown_scheduler
+        shutdown_scheduler()
+    except Exception:
+        pass
     print("👋 Shutting down Cortex Surgery Planner API.")
 
 
@@ -74,7 +85,7 @@ try:
         users, plans, progress, admin,
         mcq_scores, study_sessions, notes, recall,
         analytics, leaderboard, ai_coach, dashboard,
-        webhook, lms_content, planner_v2,
+        webhook, lms_content, planner_v2, ml,
     )
 
     # Phase 1 — federated content-aware planner consumed by Flutter + new SPA.
@@ -82,6 +93,7 @@ try:
     # the first-match lookup (users.py also defines a legacy /api/me that
     # validates planner-local JWTs and breaks LMS-federated auth).
     app.include_router(planner_v2.router)
+    app.include_router(ml.router)
     app.include_router(ai_coach.router, prefix="/api", tags=["AI Coach"])
 
     app.include_router(dashboard.router, prefix="/api", tags=["Dashboard"])

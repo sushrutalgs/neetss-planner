@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+.env.local
+uploads/snapshots/
+*.sqlite
+*.db
+.DS_Store

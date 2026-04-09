@@ -36,6 +36,15 @@ sqls = [
     "CREATE INDEX IF NOT EXISTS ix_mcq_user_topic ON mcq_scores(user_id, topic)",
     "CREATE INDEX IF NOT EXISTS ix_session_user_date ON study_sessions(user_id, date)",
     "CREATE INDEX IF NOT EXISTS ix_recall_next_review ON recall_cards(user_id, next_review_date)",
+    # ───── Phase 2 — start_date/end_date plan window + replan tracking ─────
+    "ALTER TABLE plans ADD COLUMN IF NOT EXISTS start_date DATE",
+    "ALTER TABLE plans ADD COLUMN IF NOT EXISTS end_date DATE",
+    "ALTER TABLE plans ADD COLUMN IF NOT EXISTS daily_minutes INTEGER",
+    "ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE",
+    "ALTER TABLE plans ADD COLUMN IF NOT EXISTS last_replan_at TIMESTAMP",
+    "CREATE INDEX IF NOT EXISTS ix_plan_user_active ON plans(user_id, is_archived, end_date)",
+    "CREATE INDEX IF NOT EXISTS ix_plan_start ON plans(start_date)",
+    "CREATE INDEX IF NOT EXISTS ix_plan_end ON plans(end_date)",
 ]
 
 with engine.connect() as conn:

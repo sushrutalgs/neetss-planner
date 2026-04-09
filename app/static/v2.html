@@ -1,1584 +1,962 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cortex Surgery Planner</title>
-<link rel="icon" href="/static/favicon.ico">
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#0071e3">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0a2540" />
+<title>Cortex Surgery · Planner</title>
+<link rel="manifest" href="/manifest.json" />
+<link rel="icon" href="/static/favicon.ico" />
 <style>
-  :root {
-    --bg: #f5f5f7;
-    --panel: #ffffff;
-    --panel-2: #fafafc;
-    --ink: #111;
-    --ink-2: #48484a;
-    --ink-3: #8e8e93;
-    --accent: #0071e3;
-    --accent-ink: #ffffff;
-    --border: #e5e5ea;
-    --border-2: #d1d1d6;
-    --ok: #30d158;
-    --warn: #ff9f0a;
-    --err: #ff3b30;
-    --p1: #ff3b30;
-    --p2: #ff9f0a;
-    --p3: #5ac8fa;
-    --chip-bg: #f0f0f2;
-    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
-    --radius: 14px;
-    --radius-sm: 10px;
+  :root{
+    --bg:#f5f5f7; --card:#ffffff; --ink:#1d1d1f; --muted:#86868b;
+    --line:#e5e5ea; --accent:#0071e3; --accent-deep:#0a2540;
+    --green:#34c759; --yellow:#ffcc00; --red:#ff3b30; --pink:#ff2d55;
+    --shadow:0 1px 3px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+    --radius:14px; --radius-lg:20px;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #000;
-      --panel: #1c1c1e;
-      --panel-2: #2c2c2e;
-      --ink: #f2f2f7;
-      --ink-2: #c7c7cc;
-      --ink-3: #8e8e93;
-      --border: #2c2c2e;
-      --border-2: #3a3a3c;
-      --chip-bg: #2c2c2e;
-      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.5);
-    }
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
-    background: var(--bg);
-    color: var(--ink);
-    -webkit-font-smoothing: antialiased;
-    min-height: 100vh;
-  }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter",system-ui,sans-serif;background:var(--bg);color:var(--ink);font-feature-settings:"ss01","ss02";-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  button{font:inherit;color:inherit;cursor:pointer}
+  input,select,textarea{font:inherit;color:inherit}
+  .hidden{display:none!important}
 
-  /* ─────────────────── Top bar ─────────────────── */
-  header.topbar {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 12px 22px;
-    background: var(--panel);
-    border-bottom: 1px solid var(--border);
-    position: sticky; top: 0; z-index: 50;
-  }
-  header.topbar img.logo { width: 32px; height: 32px; border-radius: 8px; }
-  .brand { line-height: 1.15; }
-  .brand .t { font-size: 14px; font-weight: 700; letter-spacing: -0.2px; }
-  .brand .s { font-size: 11px; color: var(--ink-3); }
-  .topbar .spacer { flex: 1; }
-  .chip {
-    font-size: 11px; padding: 5px 11px; border-radius: 999px;
-    background: var(--chip-bg); color: var(--ink-2); font-weight: 500;
-  }
-  .chip.ok   { background: rgba(48,209,88,.15); color: var(--ok); }
-  .chip.warn { background: rgba(255,159,10,.15); color: var(--warn); }
-  .chip.err  { background: rgba(255,59,48,.15);  color: var(--err); }
-  .topbar button.icon-btn {
-    background: none; border: 0; color: var(--ink-2); cursor: pointer; padding: 6px;
-    font-size: 18px; border-radius: 6px;
-  }
-  .topbar button.icon-btn:hover { background: var(--chip-bg); color: var(--ink); }
+  /* App shell */
+  #app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+  #sidebar{background:var(--card);border-right:1px solid var(--line);padding:24px 16px;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;margin-bottom:24px;color:var(--accent-deep)}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+  .nav{display:flex;flex-direction:column;gap:2px}
+  .nav button{display:flex;align-items:center;gap:10px;padding:10px 12px;border:0;background:transparent;border-radius:10px;text-align:left;color:var(--ink);font-weight:500;font-size:14px}
+  .nav button:hover{background:#f0f0f3}
+  .nav button.active{background:#eef4ff;color:var(--accent)}
+  .nav .icon{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center}
+  .sub-card{margin-top:24px;padding:14px;border-radius:12px;background:linear-gradient(135deg,#0a2540 0%, #0071e3 100%);color:#fff;font-size:12px}
+  .sub-card .title{font-weight:600;margin-bottom:4px}
 
-  /* ─────────────────── Tabs ─────────────────── */
-  nav.tabs {
-    display: flex; gap: 2px;
-    padding: 0 18px;
-    background: var(--panel);
-    border-bottom: 1px solid var(--border);
-    overflow-x: auto;
-    position: sticky; top: 57px; z-index: 49;
-  }
-  nav.tabs button {
-    background: none; border: 0; color: var(--ink-3);
-    padding: 12px 18px; font-size: 13px; font-weight: 500;
-    font-family: inherit; cursor: pointer; white-space: nowrap;
-    border-bottom: 2px solid transparent;
-    transition: all .15s ease;
-  }
-  nav.tabs button:hover { color: var(--ink); }
-  nav.tabs button.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
-  nav.tabs .tab-ico { margin-right: 6px; }
+  #main{padding:32px 40px 80px;max-width:1280px;width:100%;margin:0 auto}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:16px;flex-wrap:wrap}
+  .topbar h1{margin:0;font-size:28px;letter-spacing:-0.5px;font-weight:700}
+  .topbar .meta{color:var(--muted);font-size:13px;margin-top:2px}
+  .topbar .right{display:flex;gap:10px;align-items:center}
+  .pill{padding:6px 12px;border-radius:999px;background:#eef4ff;color:var(--accent);font-weight:600;font-size:12px}
+  .pill.green{background:#e7f7ec;color:#176d31}
+  .pill.yellow{background:#fff8d6;color:#7a5b00}
+  .pill.red{background:#ffe5e3;color:#a8221d}
 
-  /* ─────────────────── Layout ─────────────────── */
-  main {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 22px;
-    display: grid; gap: 18px;
-  }
-  .row { display: grid; gap: 18px; }
-  @media (min-width: 980px) {
-    .row.split-2 { grid-template-columns: 2fr 1fr; }
-    .row.split-3 { grid-template-columns: 1fr 1fr 1fr; }
-    .row.split-half { grid-template-columns: 1fr 1fr; }
-  }
-  .hide { display: none !important; }
+  .grid{display:grid;gap:20px}
+  .grid-2{grid-template-columns:repeat(auto-fit,minmax(380px,1fr))}
+  .grid-3{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+  .grid-4{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
 
-  /* ─────────────────── Cards ─────────────────── */
-  .card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 20px;
-    box-shadow: var(--shadow);
-  }
-  .card.tight { padding: 14px 16px; }
-  .card h2 {
-    font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
-    color: var(--ink-3); margin: 0 0 14px; font-weight: 600;
-  }
-  .card h3 { font-size: 17px; margin: 0 0 6px; font-weight: 700; letter-spacing: -0.2px; }
-  .card .sub { font-size: 12px; color: var(--ink-3); }
+  .card{background:var(--card);border-radius:var(--radius-lg);padding:22px;box-shadow:var(--shadow);border:1px solid var(--line)}
+  .card h2{margin:0 0 4px;font-size:16px;font-weight:600;letter-spacing:-0.2px}
+  .card .sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+  .card.big{padding:28px}
 
-  /* ─────────────────── Blocks ─────────────────── */
-  .block {
-    display: flex; align-items: flex-start; gap: 14px;
-    padding: 14px; border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    margin-bottom: 10px; background: var(--panel-2);
-    transition: all .15s ease;
-  }
-  .block:hover { border-color: var(--border-2); }
-  .block .kind {
-    font-size: 10px; text-transform: uppercase;
-    padding: 4px 10px; border-radius: 999px;
-    background: var(--accent); color: var(--accent-ink);
-    white-space: nowrap; font-weight: 600; letter-spacing: .04em;
-  }
-  .block .kind.read    { background: #0071e3; }
-  .block .kind.watch   { background: #bf5af2; }
-  .block .kind.practice{ background: #ff9f0a; }
-  .block .kind.mock    { background: #ff3b30; }
-  .block .kind.recall  { background: #30d158; }
-  .block .body { flex: 1; min-width: 0; }
-  .block .title { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
-  .block .meta  { font-size: 11px; color: var(--ink-3); margin-top: 4px; }
-  .block .items {
-    margin-top: 10px; display: grid; gap: 6px;
-    font-size: 12px; color: var(--ink-2);
-  }
-  .block .items .item {
-    padding: 7px 10px; background: var(--panel); border: 1px solid var(--border);
-    border-radius: 8px; display: flex; align-items: center; gap: 8px; cursor: pointer;
-    transition: all .12s ease;
-  }
-  .block .items .item:hover { border-color: var(--accent); background: rgba(0,113,227,.06); }
-  .block .items .item .ilbl { flex: 1; }
-  .block .items .item .imin { color: var(--ink-3); font-size: 11px; }
-  .block.completed { opacity: .55; }
-  .block.completed .title { text-decoration: line-through; }
-  .block .actions { display: flex; gap: 6px; flex-direction: column; }
+  .stat{display:flex;flex-direction:column;gap:4px}
+  .stat .num{font-size:36px;font-weight:700;letter-spacing:-1px;line-height:1}
+  .stat .lab{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+  .stat .delta{font-size:12px;font-weight:600}
 
-  /* ─────────────────── Buttons ─────────────────── */
-  button.btn {
-    font-family: inherit; font-size: 12px; padding: 7px 14px;
-    border-radius: 8px; border: 1px solid var(--border);
-    background: var(--panel); color: var(--ink); cursor: pointer;
-    font-weight: 500; transition: all .12s ease;
-  }
-  button.btn:hover { border-color: var(--border-2); }
-  button.btn.primary {
-    background: var(--accent); color: var(--accent-ink);
-    border-color: var(--accent); font-weight: 600;
-  }
-  button.btn.primary:hover { opacity: .92; }
-  button.btn.danger { color: var(--err); }
-  button.btn:disabled { opacity: .5; cursor: not-allowed; }
-  button.btn.lg { font-size: 14px; padding: 11px 22px; }
-  button.btn.sm { font-size: 11px; padding: 5px 10px; }
+  /* Readiness ring */
+  .ring{position:relative;width:160px;height:160px;margin:0 auto}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ring .center .num{font-size:42px;font-weight:700;letter-spacing:-1px}
+  .ring .center .lab{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
 
-  /* ─────────────────── Week strip ─────────────────── */
-  .week-strip {
-    display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;
-  }
-  .week-strip.long { grid-template-columns: repeat(14, 1fr); }
-  @media (max-width: 760px) {
-    .week-strip.long { grid-template-columns: repeat(7, 1fr); }
-  }
-  .week-day {
-    border: 1px solid var(--border); border-radius: var(--radius-sm);
-    padding: 10px 8px; min-height: 76px; cursor: pointer; background: var(--panel-2);
-    transition: all .12s ease; text-align: center;
-  }
-  .week-day:hover { border-color: var(--accent); }
-  .week-day.today { border-color: var(--accent); border-width: 2px; background: rgba(0,113,227,.06); }
-  .week-day .d { font-size: 10px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
-  .week-day .n { font-size: 18px; font-weight: 700; margin: 2px 0; }
-  .week-day .p { font-size: 9px; color: var(--ink-3); text-transform: uppercase; }
-  .week-day .c { font-size: 10px; margin-top: 4px; color: var(--ink-2); }
-  .week-day.done { opacity: .55; }
+  /* Buttons */
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:980px;border:0;background:var(--accent);color:#fff;font-weight:600;font-size:14px;transition:transform .1s, box-shadow .15s}
+  .btn:hover{box-shadow:0 6px 20px rgba(0,113,227,.25)}
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{background:#f0f0f3;color:var(--ink)}
+  .btn.outline{background:transparent;border:1px solid var(--line);color:var(--ink)}
+  .btn.danger{background:var(--red)}
+  .btn.sm{padding:6px 12px;font-size:12px}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap}
 
-  /* ─────────────────── Forms ─────────────────── */
-  form.generate, .form-grid {
-    display: grid; gap: 14px;
-  }
-  @media (min-width: 640px) {
-    form.generate.cols-2, .form-grid.cols-2 {
-      grid-template-columns: 1fr 1fr;
-    }
-  }
-  label.fld { display: block; font-size: 11px; color: var(--ink-3); font-weight: 500;
-              text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
-  input[type="text"], input[type="date"], input[type="number"], input[type="tel"],
-  input[type="email"], select, textarea {
-    width: 100%;
-    padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
-    background: var(--panel-2); color: var(--ink); font-size: 14px; font-family: inherit;
-    outline: none; transition: border .15s ease;
-  }
-  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
-  .help { font-size: 11px; color: var(--ink-3); margin-top: 4px; }
+  /* Forms */
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+  .field label{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  .field input, .field select, .field textarea{padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:#fafafc;font-size:14px}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:0;border-color:var(--accent);background:#fff}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 
-  /* ─────────────────── Modal ─────────────────── */
-  .modal-backdrop {
-    position: fixed; inset: 0; background: rgba(0,0,0,.62);
-    display: none; align-items: center; justify-content: center;
-    z-index: 100; padding: 20px;
-  }
-  .modal-backdrop.open { display: flex; }
-  .modal {
-    background: var(--panel); border-radius: var(--radius);
-    width: 100%; max-width: 920px; max-height: 92vh;
-    display: flex; flex-direction: column; overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0,0,0,.4);
-  }
-  .modal header {
-    padding: 16px 22px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 12px;
-  }
-  .modal header h3 { margin: 0; flex: 1; font-size: 16px; font-weight: 700; }
-  .modal header button.close {
-    background: none; border: 0; font-size: 22px; color: var(--ink-3); cursor: pointer;
-  }
-  .modal .body { flex: 1; overflow-y: auto; padding: 22px; }
-  .modal .footer {
-    padding: 14px 22px; border-top: 1px solid var(--border);
-    display: flex; gap: 10px; justify-content: flex-end;
-  }
+  /* Day cards */
+  .day{padding:16px;border-radius:14px;border:1px solid var(--line);background:#fff;margin-bottom:12px}
+  .day .head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+  .day .head .date{font-weight:700;font-size:15px}
+  .day .head .phase{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  .block{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 12px;border-radius:10px;background:#fafafc;margin-bottom:6px;gap:12px}
+  .block .title{font-weight:600;font-size:14px}
+  .block .why{font-size:12px;color:var(--muted);margin-top:2px}
+  .block .right{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+  .block .min{font-size:12px;color:var(--muted)}
+  .block .actions{display:flex;gap:4px}
+  .kind{font-size:10px;text-transform:uppercase;font-weight:700;padding:2px 6px;border-radius:6px;background:#eef4ff;color:var(--accent)}
+  .kind.read{background:#fff4e5;color:#a04500}
+  .kind.watch{background:#ffe5e3;color:#a8221d}
+  .kind.mcq{background:#e7f7ec;color:#176d31}
+  .kind.recall{background:#f0e8ff;color:#5e2bb5}
+  .kind.mock{background:#0a2540;color:#fff}
 
-  /* ─────────────────── Subscription gate ─────────────────── */
-  .gate-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,.78);
-    display: none; align-items: center; justify-content: center;
-    z-index: 200; padding: 20px;
-  }
-  .gate-overlay.open { display: flex; }
-  .gate-card {
-    background: var(--panel); border-radius: var(--radius);
-    max-width: 460px; padding: 30px;
-  }
-  .gate-card h3 { margin: 0 0 10px; font-size: 20px; }
-  .gate-card p { font-size: 14px; color: var(--ink-2); line-height: 1.55; }
-
-  /* ─────────────────── Skeleton loaders ─────────────────── */
-  .skeleton {
-    background: linear-gradient(90deg, var(--chip-bg) 0%, var(--border) 50%, var(--chip-bg) 100%);
-    background-size: 200% 100%;
-    animation: shimmer 1.6s linear infinite;
-    border-radius: 6px; height: 14px; margin: 6px 0;
-  }
-  @keyframes shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
-
-  .empty { color: var(--ink-3); font-size: 13px; padding: 12px 0; text-align: center; }
-  .md { font-size: 14px; line-height: 1.6; color: var(--ink-2); }
-  .md h1, .md h2, .md h3 { color: var(--ink); margin: 14px 0 6px; }
-  .md strong { color: var(--ink); }
-  .md ul { padding-left: 18px; }
-  .md p { margin: 8px 0; }
-
-  /* ─────────────────── Content tree ─────────────────── */
-  .tree-cat { margin-bottom: 12px; }
-  .tree-cat-head {
-    display: flex; align-items: center; gap: 10px;
-    padding: 12px 14px; background: var(--panel-2);
-    border-radius: var(--radius-sm); cursor: pointer;
-    border: 1px solid var(--border);
-  }
-  .tree-cat-head .ix { font-size: 14px; color: var(--ink-3); }
-  .tree-cat-head .nm { flex: 1; font-weight: 600; font-size: 14px; }
-  .tree-cat-head .ct { font-size: 11px; color: var(--ink-3); }
-  .tree-sub { margin: 8px 0 0 22px; }
-  .tree-sub-head {
-    padding: 8px 12px; font-size: 13px; font-weight: 500;
-    color: var(--ink-2); cursor: pointer;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .tree-topic {
-    padding: 9px 14px; margin: 4px 0 4px 18px;
-    border-left: 2px solid var(--border);
-    font-size: 13px; cursor: pointer; color: var(--ink-2);
-    display: flex; align-items: center; gap: 10px;
-  }
-  .tree-topic:hover { border-left-color: var(--accent); color: var(--ink); }
-  .tree-topic .prio {
-    font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .05em;
-  }
-  .tree-topic .prio.p1 { background: rgba(255,59,48,.15); color: var(--p1); }
-  .tree-topic .prio.p2 { background: rgba(255,159,10,.15); color: var(--p2); }
-  .tree-topic .prio.p3 { background: rgba(90,200,250,.15); color: var(--p3); }
-  .tree-topic .counts { margin-left: auto; font-size: 11px; color: var(--ink-3); }
-
-  /* ─────────────────── MCQ runner ─────────────────── */
-  .mcq-q { padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 10px; }
-  .mcq-q .qtext { font-size: 14px; margin-bottom: 12px; line-height: 1.5; }
-  .mcq-opts { display: grid; gap: 6px; }
-  .mcq-opt {
-    padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;
-    cursor: pointer; font-size: 13px; background: var(--panel-2);
-    transition: all .12s ease;
-  }
-  .mcq-opt:hover { border-color: var(--accent); }
-  .mcq-opt.sel { background: rgba(0,113,227,.1); border-color: var(--accent); }
-  .mcq-opt.correct { background: rgba(48,209,88,.15); border-color: var(--ok); }
-  .mcq-opt.wrong   { background: rgba(255,59,48,.15); border-color: var(--err); }
-  .mcq-expl { padding: 12px; background: var(--panel-2); border-radius: 8px;
-              margin-top: 10px; font-size: 13px; color: var(--ink-2); }
-
-  /* ─────────────────── Progress donuts ─────────────────── */
-  .donut { width: 110px; height: 110px; margin: 0 auto; position: relative; }
-  .donut svg { transform: rotate(-90deg); }
-  .donut .lbl {
-    position: absolute; inset: 0; display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-  }
-  .donut .lbl .big { font-size: 22px; font-weight: 700; }
-  .donut .lbl .sm  { font-size: 10px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; }
+  /* Tables */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-size:11px;text-transform:uppercase;color:var(--muted);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);letter-spacing:.4px}
+  td{padding:10px;border-bottom:1px solid var(--line)}
+  tr:last-child td{border-bottom:0}
+  tr:hover td{background:#fafafc}
+  .bar{display:inline-block;height:6px;background:var(--line);border-radius:3px;width:100px;overflow:hidden;vertical-align:middle}
+  .bar > i{display:block;height:100%;background:var(--accent)}
+  .bar.green > i{background:var(--green)}
+  .bar.red > i{background:var(--red)}
+  .bar.yellow > i{background:var(--yellow)}
 
   /* Heatmap */
-  .heatmap { display: grid; grid-template-columns: repeat(13, 1fr); gap: 3px; }
-  .heatmap .cell {
-    aspect-ratio: 1; border-radius: 3px; background: var(--chip-bg); min-height: 14px;
-  }
-  .heatmap .cell.l1 { background: rgba(48,209,88,.28); }
-  .heatmap .cell.l2 { background: rgba(48,209,88,.52); }
-  .heatmap .cell.l3 { background: rgba(48,209,88,.76); }
-  .heatmap .cell.l4 { background: var(--ok); }
+  .heatmap{display:grid;grid-template-columns:repeat(13, 1fr);gap:3px}
+  .heatmap .cell{aspect-ratio:1;border-radius:3px;background:#eef0f3}
+  .heatmap .cell.l1{background:#cfe9d4}
+  .heatmap .cell.l2{background:#9bd3a8}
+  .heatmap .cell.l3{background:#5cba74}
+  .heatmap .cell.l4{background:#2da14a}
+
+  /* Chat */
+  .chat{display:flex;flex-direction:column;gap:10px;max-height:520px;overflow-y:auto;padding:6px}
+  .msg{padding:12px 14px;border-radius:14px;max-width:78%;font-size:14px;line-height:1.45;white-space:pre-wrap}
+  .msg.user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+  .msg.ai{align-self:flex-start;background:#f0f0f3;border-bottom-left-radius:4px}
+  .chat-input{display:flex;gap:10px;margin-top:14px}
+  .chat-input input{flex:1;padding:13px 16px;border-radius:980px;border:1px solid var(--line);background:#fafafc;font-size:14px}
+  .chat-input input:focus{outline:0;border-color:var(--accent);background:#fff}
+
+  /* Loader */
+  .loader{display:inline-block;width:14px;height:14px;border:2px solid #cfd6e0;border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
 
   /* Toast */
-  .toast {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: var(--ink); color: var(--bg); padding: 12px 20px;
-    border-radius: 24px; font-size: 13px; z-index: 500;
-    opacity: 0; pointer-events: none; transition: opacity .2s ease;
-  }
-  .toast.show { opacity: 1; }
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1d1d1f;color:#fff;padding:12px 22px;border-radius:980px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;z-index:200}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
 
-  table.simple {
-    width: 100%; border-collapse: collapse; font-size: 13px;
-  }
-  table.simple th, table.simple td {
-    text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border);
-  }
-  table.simple th { font-size: 11px; text-transform: uppercase; color: var(--ink-3); letter-spacing: .04em; font-weight: 600; }
-  table.simple tbody tr:hover { background: var(--panel-2); }
+  /* Login */
+  #login{display:flex;align-items:center;justify-content:center;min-height:100vh}
+  #login .card{max-width:420px;width:90%}
 
-  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
-  .stat {
-    padding: 14px; background: var(--panel-2); border-radius: var(--radius-sm);
-    border: 1px solid var(--border); text-align: center;
+  @media (max-width:880px){
+    #app{grid-template-columns:1fr}
+    #sidebar{position:relative;height:auto;border-right:0;border-bottom:1px solid var(--line)}
+    .nav{flex-direction:row;overflow-x:auto;gap:6px}
+    .nav button{white-space:nowrap}
+    #main{padding:20px}
   }
-  .stat .big { font-size: 24px; font-weight: 700; color: var(--ink); }
-  .stat .lbl { font-size: 11px; color: var(--ink-3); text-transform: uppercase; margin-top: 2px; letter-spacing: .04em; }
 </style>
 </head>
 <body>
 
-<!-- ═════════════════════ TOP BAR ═════════════════════ -->
-<header class="topbar">
-  <img class="logo" src="/static/logo.png" alt="Cortex">
-  <div class="brand">
-    <div class="t">Cortex Surgery Planner</div>
-    <div class="s" id="tb-user">loading…</div>
-  </div>
-  <div class="spacer"></div>
-  <div class="chip" id="tb-streak" title="Study streak">—</div>
-  <div class="chip" id="tb-sub">—</div>
-  <button class="icon-btn" id="tb-refresh" title="Refresh content">⟳</button>
-  <button class="icon-btn" id="tb-logout"  title="Sign out">⎋</button>
-</header>
-
-<!-- ═════════════════════ TAB NAV ═════════════════════ -->
-<nav class="tabs" id="tabs">
-  <button data-tab="today"    class="active"><span class="tab-ico">📅</span>Today</button>
-  <button data-tab="plan"><span class="tab-ico">📐</span>Plan</button>
-  <button data-tab="content"><span class="tab-ico">📚</span>Content</button>
-  <button data-tab="progress"><span class="tab-ico">📊</span>Progress</button>
-  <button data-tab="coach"><span class="tab-ico">🤖</span>AI Coach</button>
-  <button data-tab="settings"><span class="tab-ico">⚙️</span>Settings</button>
-</nav>
-
-<!-- ═════════════════════ MAIN ═════════════════════ -->
-<main id="app">
-
-  <!-- ─────────────── TAB: TODAY ─────────────── -->
-  <section class="tab-panel" data-panel="today">
-    <div class="row split-2">
-      <!-- LEFT: today blocks -->
-      <div class="card" id="today-card">
-        <h2>Today</h2>
-        <h3 id="today-date">—</h3>
-        <div class="sub" id="today-budget">—</div>
-        <div id="today-blocks" style="margin-top:16px">
-          <div class="skeleton"></div>
-          <div class="skeleton" style="width:80%"></div>
-          <div class="skeleton" style="width:60%"></div>
-        </div>
-      </div>
-      <!-- RIGHT: rationale + week strip -->
-      <div style="display:grid;gap:18px;">
-        <div class="card">
-          <h2>AI rationale</h2>
-          <div id="rationale-md" class="md"><div class="empty">Generate a plan to see the rationale.</div></div>
-        </div>
-        <div class="card">
-          <h2>Next 14 days</h2>
-          <div id="week-strip" class="week-strip long"></div>
-        </div>
-        <div class="card">
-          <h2>Daily briefing</h2>
-          <div id="briefing" class="md"><div class="empty">Your daily briefing will appear here.</div></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─────────────── TAB: PLAN ─────────────── -->
-  <section class="tab-panel hide" data-panel="plan">
-    <div class="card" id="plan-generator-card">
-      <h2>Create or rebuild plan</h2>
-      <h3>Build your adaptive plan</h3>
-      <p class="sub" style="margin-bottom:18px;">We'll pull your subscribed LMS content (notes, videos, MCQs, mocks) and schedule day-by-day against your exam date, mastery state, and daily hours budget.</p>
-      <form id="gen-form" class="generate cols-2">
-        <div>
-          <label class="fld">Plan name</label>
-          <input type="text" name="name" value="My NEET SS plan" required>
-        </div>
-        <div>
-          <label class="fld">Exam date</label>
-          <input type="date" name="exam_date" required>
-        </div>
-        <div>
-          <label class="fld">Hours per day</label>
-          <input type="number" name="hours_per_day" value="5" min="1" max="14" step="0.5" required>
-          <div class="help">Average daily study budget. The scheduler will fit read + watch + practice within this.</div>
-        </div>
-        <div>
-          <label class="fld">Rest days per week</label>
-          <select name="rest_days_per_week">
-            <option value="0">0 — all-in</option>
-            <option value="1" selected>1 — Sunday off</option>
-            <option value="2">2 — Sat + Sun off</option>
-          </select>
-        </div>
-        <div>
-          <label class="fld">Custom rest dates (comma-separated YYYY-MM-DD)</label>
-          <input type="text" name="custom_rest_dates" placeholder="2026-05-15, 2026-06-01">
-          <div class="help">Specific days you want off (weddings, travel, etc.).</div>
-        </div>
-        <div>
-          <label class="fld">Use LMS content</label>
-          <select name="use_lms_content">
-            <option value="true" selected>Yes — pull my subscribed notes/videos/MCQs/mocks</option>
-            <option value="false">No — chapter references only</option>
-          </select>
-        </div>
-        <div style="grid-column:1/-1; display:flex; gap:10px; margin-top:6px;">
-          <button type="submit" class="btn primary lg">Generate plan</button>
-          <button type="button" class="btn lg" id="adapt-btn">Adapt from weaknesses</button>
-        </div>
-      </form>
-    </div>
-
-    <div class="card">
-      <h2>Current plan</h2>
-      <div id="current-plan-header" class="sub">—</div>
-      <div class="row split-3" style="margin-top:14px;">
-        <div class="stat"><div class="big" id="stat-days-total">—</div><div class="lbl">Days planned</div></div>
-        <div class="stat"><div class="big" id="stat-days-done">—</div><div class="lbl">Days completed</div></div>
-        <div class="stat"><div class="big" id="stat-blocks">—</div><div class="lbl">Total blocks</div></div>
-      </div>
-      <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="btn" id="plan-download-pdf">Download PDF</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Full schedule</h2>
-      <div id="full-schedule"><div class="empty">No plan yet.</div></div>
-    </div>
-  </section>
-
-  <!-- ─────────────── TAB: CONTENT ─────────────── -->
-  <section class="tab-panel hide" data-panel="content">
-    <div class="card">
-      <h2>Your LMS content</h2>
-      <h3>Notes · Videos · MCQs · Mocks</h3>
-      <p class="sub" style="margin-bottom:14px;">All content from your active Sushruta LMS subscriptions. Click any topic to play notes, stream videos, or run MCQ batches inline. Everything logs back to your progress automatically.</p>
-      <div id="content-tree"><div class="empty">Loading content tree…</div></div>
-    </div>
-  </section>
-
-  <!-- ─────────────── TAB: PROGRESS ─────────────── -->
-  <section class="tab-panel hide" data-panel="progress">
-    <div class="row split-3">
-      <div class="card">
-        <h2>Study hours (7d)</h2>
-        <div class="donut" id="donut-hours"></div>
-      </div>
-      <div class="card">
-        <h2>MCQ accuracy</h2>
-        <div class="donut" id="donut-mcq"></div>
-      </div>
-      <div class="card">
-        <h2>Plan completion</h2>
-        <div class="donut" id="donut-plan"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>90-day study heatmap</h2>
-      <div class="heatmap" id="heatmap"></div>
-    </div>
-
-    <div class="card">
-      <h2>Topic accuracy</h2>
-      <div id="topic-acc"><div class="empty">No MCQ data yet. Start practicing.</div></div>
-    </div>
-
-    <div class="card">
-      <h2>Spaced recall (SM-2)</h2>
-      <div id="recall-list"><div class="empty">No due cards right now.</div></div>
-    </div>
-  </section>
-
-  <!-- ─────────────── TAB: COACH ─────────────── -->
-  <section class="tab-panel hide" data-panel="coach">
-    <div class="card">
-      <h2>Weekly AI review</h2>
-      <h3 id="coach-headline">Claude is ready to review your week</h3>
-      <button class="btn primary" id="coach-refresh">Generate weekly review</button>
-      <div id="coach-body" class="md" style="margin-top:14px;"><div class="empty">Click the button to generate a personalized review.</div></div>
-    </div>
-
-    <div class="row split-half">
-      <div class="card">
-        <h2>Weak topics</h2>
-        <div id="weak-topics"><div class="empty">—</div></div>
-      </div>
-      <div class="card">
-        <h2>Strong topics</h2>
-        <div id="strong-topics"><div class="empty">—</div></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Leaderboard</h2>
-      <div id="leaderboard"><div class="empty">Loading peer rankings…</div></div>
-    </div>
-  </section>
-
-  <!-- ─────────────── TAB: SETTINGS ─────────────── -->
-  <section class="tab-panel hide" data-panel="settings">
-    <div class="card">
-      <h2>Identity</h2>
-      <div id="settings-identity"><div class="skeleton"></div><div class="skeleton" style="width:70%"></div></div>
-    </div>
-    <div class="card">
-      <h2>Subscription</h2>
-      <div id="settings-subscription"><div class="skeleton"></div></div>
-    </div>
-    <div class="card">
-      <h2>Preferences</h2>
-      <div class="form-grid cols-2">
-        <div>
-          <label class="fld">Leaderboard opt-in</label>
-          <select id="pref-leaderboard">
-            <option value="true">Yes — show me on public rankings</option>
-            <option value="false">No — keep me private</option>
-          </select>
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <h2>Session</h2>
-      <button class="btn danger" id="settings-logout">Sign out</button>
-    </div>
-  </section>
-
-</main>
-
-<!-- ═════════════════════ CONTENT MODAL ═════════════════════ -->
-<div class="modal-backdrop" id="modal-backdrop">
-  <div class="modal" id="modal">
-    <header>
-      <h3 id="modal-title">—</h3>
-      <button class="close" id="modal-close">×</button>
-    </header>
-    <div class="body" id="modal-body"></div>
-    <div class="footer" id="modal-footer"></div>
+<!-- ════════════════════ LOGIN ════════════════════ -->
+<div id="login" class="hidden">
+  <div class="card big">
+    <h2 style="font-size:22px;text-align:center;margin-bottom:6px">Cortex Surgery Planner</h2>
+    <p class="sub" style="text-align:center;margin-bottom:20px">Sign in with your Sushruta LMS credentials</p>
+    <div class="field"><label>Email</label><input id="loginEmail" type="email" placeholder="dr@example.com" /></div>
+    <div class="field"><label>Password</label><input id="loginPassword" type="password" /></div>
+    <button class="btn" style="width:100%;justify-content:center" onclick="login()">Sign in</button>
+    <p class="sub" style="text-align:center;margin-top:14px">Need an account? <a href="https://sushruta.ai">Sign up at sushruta.ai</a></p>
   </div>
 </div>
 
-<!-- ═════════════════════ SUBSCRIPTION GATE ═════════════════════ -->
-<div class="gate-overlay" id="gate">
-  <div class="gate-card">
-    <h3>Your subscription has expired</h3>
-    <p id="gate-msg">The planner is locked until you renew. You can still download your last plan PDF for offline use.</p>
-    <div style="display:flex; gap:10px; margin-top:18px;">
-      <button class="btn primary lg" onclick="window.open('https://sushrutalgs.in/subscription','_blank')">Renew now</button>
-      <button class="btn lg" id="gate-pdf">Download last plan</button>
+<!-- ════════════════════ APP SHELL ════════════════════ -->
+<div id="app" class="hidden">
+  <aside id="sidebar">
+    <div class="brand"><span class="dot"></span> Cortex</div>
+    <nav class="nav">
+      <button data-tab="dashboard" class="active"><span class="icon">🏠</span> Dashboard</button>
+      <button data-tab="planner"><span class="icon">📋</span> Planner</button>
+      <button data-tab="weekly"><span class="icon">📅</span> Weekly</button>
+      <button data-tab="daily"><span class="icon">☀️</span> Daily</button>
+      <button data-tab="progress"><span class="icon">📈</span> Progress</button>
+      <button data-tab="analytics"><span class="icon">📊</span> Analytics</button>
+      <button data-tab="timer"><span class="icon">⏱️</span> Timer</button>
+      <button data-tab="recall"><span class="icon">🧠</span> Recall</button>
+      <button data-tab="coach"><span class="icon">💬</span> AI Coach</button>
+      <button data-tab="leaderboard"><span class="icon">🏆</span> Leaderboard</button>
+      <button data-tab="syllabus"><span class="icon">📚</span> Syllabus</button>
+    </nav>
+    <div class="sub-card">
+      <div class="title" id="subTitle">Loading…</div>
+      <div id="subBody"></div>
     </div>
-  </div>
+  </aside>
+
+  <main id="main">
+    <div class="topbar">
+      <div>
+        <h1 id="pageTitle">Dashboard</h1>
+        <div class="meta" id="pageMeta">Welcome back</div>
+      </div>
+      <div class="right">
+        <span class="pill" id="streakPill">— day streak</span>
+        <button class="btn ghost sm" onclick="refreshAll()">↻ Refresh</button>
+        <button class="btn outline sm" onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <section id="tab-dashboard" class="tab-content"></section>
+    <section id="tab-planner" class="tab-content hidden"></section>
+    <section id="tab-weekly" class="tab-content hidden"></section>
+    <section id="tab-daily" class="tab-content hidden"></section>
+    <section id="tab-progress" class="tab-content hidden"></section>
+    <section id="tab-analytics" class="tab-content hidden"></section>
+    <section id="tab-timer" class="tab-content hidden"></section>
+    <section id="tab-recall" class="tab-content hidden"></section>
+    <section id="tab-coach" class="tab-content hidden"></section>
+    <section id="tab-leaderboard" class="tab-content hidden"></section>
+    <section id="tab-syllabus" class="tab-content hidden"></section>
+  </main>
 </div>
 
-<div class="toast" id="toast">—</div>
+<div id="toast"></div>
 
 <script>
-// ════════════════════════ STATE & API ════════════════════════
+/* ═══════════════════════════════════════════════════════════
+   Cortex SPA — Apple-tier 11-tab planner
+   Talks exclusively to /api/* (planner_v2 + ml routers)
+   ═══════════════════════════════════════════════════════════ */
 
-const LMS_API_BASE = 'https://api.sushrutalgs.in';
-
-const state = {
-  token: localStorage.getItem('lms_jwt') ||
-         new URLSearchParams(location.search).get('token') || '',
-  me: null,
-  plan: null,
-  today: null,
-  bundle: null,
-  weekDays: [],
-  coach: null,
-  activeTab: 'today',
-};
-if (new URLSearchParams(location.search).get('token')) {
-  localStorage.setItem('lms_jwt', state.token);
-  history.replaceState({}, '', location.pathname);
-}
-
-function getDeviceId() {
-  let id = localStorage.getItem('lms_device_id');
-  if (!id) {
-    id = 'web-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now().toString(36);
-    localStorage.setItem('lms_device_id', id);
-  }
-  return id;
-}
-
-const API = {
-  async req(path, opts={}) {
-    const r = await fetch('/api' + path, {
-      ...opts,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + state.token,
-        ...(opts.headers || {}),
-      },
-    });
-    if (r.status === 402) { showGate(await r.json().catch(()=>({}))); throw new Error('subscription_required'); }
-    if (r.status === 401) {
-      localStorage.removeItem('lms_jwt');
-      state.token = '';
-      showLoginForm('Your session expired. Sign in again.');
-      throw new Error('unauthorized');
-    }
-    if (!r.ok) {
-      let msg = 'http ' + r.status;
-      try { const j = await r.json(); if (j && j.detail) msg = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail); } catch(e) {}
-      throw new Error(msg);
-    }
-    if (r.status === 204) return null;
-    return r.json();
-  },
-
-  // v2 federated
-  me:         ()          => API.req('/me'),
-  today:      ()          => API.req('/me/today'),
-  current:    ()          => API.req('/plans/current'),
-  generate:   (body)      => API.req('/plans/generate', { method: 'POST', body: JSON.stringify(body) }),
-  week:       (pid, from) => API.req(`/plans/${pid}/week?from=${from}`),
-  complete:   (bid)       => API.req(`/blocks/${bid}/complete`, { method: 'POST' }),
-  skip:       (bid)       => API.req(`/blocks/${bid}/skip`,     { method: 'POST' }),
-  snooze:     (bid, until)=> API.req(`/blocks/${bid}/snooze`,   { method: 'POST', body: JSON.stringify({ until }) }),
-
-  // LMS content proxy
-  bundle:     ()          => API.req('/lms/bundle'),
-  lmsToday:   (h)         => API.req(`/lms/today?hours=${h}`),
-  mcqBatch:   (tid, n)    => API.req(`/lms/mcq-batch?topic_id=${encodeURIComponent(tid)}&count=${n}`),
-  lmsRefresh: ()          => API.req('/lms/refresh', { method: 'POST' }),
-
-  // AI coach
-  coachV2:    ()          => API.req('/ai-coach/v2/weekly-review'),
-  coachV1:    ()          => API.req('/ai-coach/weekly-review'),
-  adaptPlan:  ()          => API.req('/ai-coach/adapt-plan', { method: 'POST' }),
-
-  // Legacy routers (now LMS-aware via auth shim)
-  analyticsSummary:  ()       => API.req('/analytics/summary'),
-  analyticsWeakness: ()       => API.req('/analytics/weakness'),
-  mcqScores:         ()       => API.req('/mcq-scores'),
-  mcqTopicSummary:   ()       => API.req('/mcq-scores/topic-summary'),
-  postMcqScore:      (body)   => API.req('/mcq-scores', { method: 'POST', body: JSON.stringify(body) }),
-  sessionDaily:      ()       => API.req('/study-sessions/daily-totals'),
-  postSession:       (body)   => API.req('/study-sessions', { method: 'POST', body: JSON.stringify(body) }),
-  recallDue:         ()       => API.req('/recall/due'),
-  recallReview:      (body)   => API.req('/recall/review', { method: 'POST', body: JSON.stringify(body) }),
-  recallStats:       ()       => API.req('/recall/stats'),
-  dashboard:         ()       => API.req('/dashboard'),
-  leaderboard:       ()       => API.req('/leaderboard'),
+const TOKEN_KEY = 'cortex_token';
+let token = localStorage.getItem(TOKEN_KEY) || '';
+let state = {
+  me: null, plan: null, signal: null, mastery: null, briefing: null,
+  recommendations: null, readiness: null, runway: null, streak: null,
+  diagnostics: null, chatHistory: [],
 };
 
-// ════════════════════════ UTILITIES ════════════════════════
-
-function $ (s, el=document) { return el.querySelector(s); }
-function $$(s, el=document) { return Array.from(el.querySelectorAll(s)); }
-function esc(s) {
-  return (s==null?'':s.toString()).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-}
-function fmtDate(iso) { if (!iso) return '—'; return new Date(iso).toLocaleDateString(undefined, { weekday:'long', month:'short', day:'numeric' }); }
-function fmtShort(iso) { if (!iso) return ''; return new Date(iso).toLocaleDateString(undefined, { month:'short', day:'numeric' }); }
-function todayIso() { return new Date().toISOString().slice(0,10); }
-function showToast(msg) {
-  const t = $('#toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(t._to);
-  t._to = setTimeout(() => t.classList.remove('show'), 2500);
-}
-
-function mdToHtml(md) {
-  if (!md) return '';
-  let html = esc(md);
-  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>')
-             .replace(/^## (.+)$/gm,  '<h2>$1</h2>')
-             .replace(/^# (.+)$/gm,   '<h1>$1</h1>')
-             .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-             .replace(/\*([^*]+)\*/g,     '<em>$1</em>')
-             .replace(/`([^`]+)`/g,       '<code>$1</code>')
-             .replace(/^- (.+)$/gm,       '<li>$1</li>');
-  html = html.replace(/(<li>.*<\/li>\n?)+/g, m => '<ul>' + m.replace(/\n/g,'') + '</ul>');
-  html = html.split(/\n{2,}/).map(p => p.startsWith('<') ? p : '<p>' + p.replace(/\n/g,'<br>') + '</p>').join('');
-  return html;
-}
-
-function donut(el, pct, label) {
-  const r = 44, c = 2 * Math.PI * r;
-  const dash = Math.max(0, Math.min(100, pct)) / 100 * c;
-  el.innerHTML = `
-    <svg width="110" height="110" viewBox="0 0 110 110">
-      <circle cx="55" cy="55" r="${r}" fill="none" stroke="var(--border)" stroke-width="10"/>
-      <circle cx="55" cy="55" r="${r}" fill="none" stroke="var(--accent)" stroke-width="10"
-              stroke-dasharray="${dash} ${c}" stroke-linecap="round"/>
-    </svg>
-    <div class="lbl"><div class="big">${Math.round(pct)}%</div><div class="sm">${esc(label)}</div></div>
-  `;
-}
-
-// ════════════════════════ RENDERING ════════════════════════
-
-function showGate(detail={}) {
-  $('#gate').classList.add('open');
-  const d = detail.detail || detail;
-  if (d && d.expired_days_ago != null) {
-    $('#gate-msg').textContent = `Expired ${d.expired_days_ago} days ago. Renew to unlock your plan — your PDF download stays available either way.`;
+async function api(path, opts = {}) {
+  opts.headers = Object.assign({
+    'Content-Type': 'application/json',
+    'authorization': token,
+  }, opts.headers || {});
+  const r = await fetch(path, opts);
+  if (r.status === 401) {
+    localStorage.removeItem(TOKEN_KEY); token = '';
+    showLogin();
+    throw new Error('Unauthorized');
   }
+  if (r.status === 402) {
+    toast('Subscription expired — visit sushruta.ai to renew');
+    throw new Error('Locked');
+  }
+  if (!r.ok) {
+    const err = await r.text();
+    throw new Error(err.slice(0, 200));
+  }
+  return r.json();
 }
 
-function renderMe(me) {
-  state.me = me;
-  $('#tb-user').textContent = me.name || me.email || 'Student';
-  const chip = $('#tb-sub');
-  chip.textContent = me.subscription_status || 'none';
-  chip.className = 'chip ' + (
-    me.subscription_status === 'active' ? 'ok' :
-    me.subscription_status === 'grace'  ? 'warn' : 'err'
-  );
-  // Settings tab
-  $('#settings-identity').innerHTML = `
-    <div class="stat-grid">
-      <div class="stat"><div class="big" style="font-size:15px;">${esc(me.name || '—')}</div><div class="lbl">Name</div></div>
-      <div class="stat"><div class="big" style="font-size:13px;">${esc(me.email || '—')}</div><div class="lbl">Email</div></div>
-      <div class="stat"><div class="big" style="font-size:13px;">${esc(me.lms_user_id || '—')}</div><div class="lbl">LMS ID</div></div>
-    </div>
-  `;
-  const daysRem = me.days_to_expiry != null ? me.days_to_expiry : (me.days_since_expiry != null ? -me.days_since_expiry : null);
-  $('#settings-subscription').innerHTML = `
-    <div class="stat-grid">
-      <div class="stat"><div class="big">${esc(me.subscription_status || 'none')}</div><div class="lbl">Status</div></div>
-      <div class="stat"><div class="big">${daysRem != null ? daysRem : '—'}</div><div class="lbl">Days remaining</div></div>
-    </div>
-    ${me.renewal_banner ? '<p class="help" style="margin-top:12px;color:var(--warn);font-weight:600;">⚠ Renew soon to avoid planner lockout after the 3-day grace.</p>' : ''}
-  `;
-  if (me.leaderboard_opt_in != null) $('#pref-leaderboard').value = me.leaderboard_opt_in ? 'true' : 'false';
-}
-
-function renderBlock(b) {
-  const el = document.createElement('div');
-  el.className = 'block' + (b.state === 'completed' ? ' completed' : '');
-  const items = (b.items || []).map((i, ix) => {
-    const label = i.title || i.content_kind || '';
-    const min = i.est_min ? `<span class="imin">${i.est_min} min</span>` : '';
-    return `<div class="item" data-item-ix="${ix}"><span class="ilbl">${esc(label)}</span>${min}</div>`;
-  }).join('') || '<div class="empty" style="text-align:left;padding:4px 0;">No items.</div>';
-  el.innerHTML = `
-    <div class="kind ${esc(b.kind || '')}">${esc(b.kind || '')}</div>
-    <div class="body">
-      <div class="title">${esc((b.topic_ref && b.topic_ref.name) || b.kind || 'Block')}</div>
-      ${b.rationale ? `<div class="meta">${esc(b.rationale)}</div>` : ''}
-      <div class="items">${items}</div>
-    </div>
-    <div class="actions">
-      <button class="btn sm" data-act="complete" data-id="${esc(b.block_id)}">Done</button>
-      <button class="btn sm" data-act="skip"     data-id="${esc(b.block_id)}">Skip</button>
-    </div>
-  `;
-  // Wire item clicks → open content modal
-  el.querySelectorAll('.item').forEach(it => {
-    it.addEventListener('click', (ev) => {
-      const ix = parseInt(ev.currentTarget.getAttribute('data-item-ix'), 10);
-      const item = (b.items || [])[ix];
-      if (item) openContentItem(item, b);
+async function login() {
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPassword').value;
+  try {
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({email, password}),
     });
-  });
-  el.querySelectorAll('button[data-act]').forEach(btn => {
-    btn.addEventListener('click', async (ev) => {
-      ev.stopPropagation();
-      const act = ev.currentTarget.getAttribute('data-act');
-      const id = ev.currentTarget.getAttribute('data-id');
-      btn.disabled = true;
-      try {
-        if (act === 'complete') { await API.complete(id); showToast('Block marked done'); }
-        if (act === 'skip')     { await API.skip(id);     showToast('Block skipped'); }
-        await refreshToday();
-      } catch (e) {
-        showToast('Action failed: ' + e.message);
-      } finally { btn.disabled = false; }
-    });
-  });
-  return el;
+    if (!r.ok) { toast('Invalid credentials'); return; }
+    const data = await r.json();
+    token = data.token || data.access_token || (data.data && data.data.token);
+    if (!token) { toast('No token returned'); return; }
+    localStorage.setItem(TOKEN_KEY, token);
+    showApp();
+    refreshAll();
+  } catch(e) { toast('Login failed: ' + e.message); }
 }
 
-async function refreshToday() {
+function logout() {
+  localStorage.removeItem(TOKEN_KEY); token = '';
+  showLogin();
+}
+
+function showLogin() {
+  document.getElementById('login').classList.remove('hidden');
+  document.getElementById('app').classList.add('hidden');
+}
+function showApp() {
+  document.getElementById('login').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+}
+
+function toast(msg, dur=2400) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), dur);
+}
+
+const TAB_TITLES = {
+  dashboard:['Dashboard','Today, at a glance'],
+  planner:['Planner','Build & manage your study plan'],
+  weekly:['Weekly View','The next 14 days'],
+  daily:['Daily View','Today\'s blocks'],
+  progress:['Progress','Mastery + coverage radar'],
+  analytics:['Analytics','MCQ, mocks, time trends'],
+  timer:['Focus Timer','Pomodoro & free sessions'],
+  recall:['Spaced Repetition','FSRS-driven recall queue'],
+  coach:['AI Coach','Conversational tutor'],
+  leaderboard:['Leaderboard','Cohort benchmarking'],
+  syllabus:['Syllabus','Full content tree'],
+};
+
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-tab]');
+  if (!btn) return;
+  const tab = btn.dataset.tab;
+  document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('active', b === btn));
+  document.querySelectorAll('.tab-content').forEach(s => s.classList.add('hidden'));
+  document.getElementById('tab-'+tab).classList.remove('hidden');
+  const meta = TAB_TITLES[tab] || [tab, ''];
+  document.getElementById('pageTitle').textContent = meta[0];
+  document.getElementById('pageMeta').textContent = meta[1];
+  renderTab(tab);
+});
+
+async function refreshAll() {
   try {
-    const today = await API.today();
-    state.today = today;
-    renderToday(today);
-  } catch(e) { if (e.message !== 'unauthorized' && e.message !== 'subscription_required') console.error(e); }
-}
+    state.me = await api('/api/me');
+    document.getElementById('subTitle').textContent = state.me.name || 'Doctor';
+    document.getElementById('subBody').textContent =
+      (state.me.subscription_status === 'active' ? '✓ Active' :
+       state.me.subscription_status === 'grace' ? '⚠ Grace period' : '✗ Expired') +
+      (state.me.days_to_expiry != null ? ` · ${state.me.days_to_expiry}d left` : '');
+  } catch (e) { return; }
 
-function renderToday(today) {
-  const cont = $('#today-blocks');
-  cont.innerHTML = '';
-  if (!today || !today.has_plan) {
-    $('#today-date').textContent = 'No plan yet';
-    $('#today-budget').textContent = (today && today.message) || 'Create a plan from the Plan tab.';
-    cont.innerHTML = '<div class="empty">No day card available. Head to the <b>Plan</b> tab to build one.</div>';
-    return;
-  }
-  const day = today.day;
-  if (!day) {
-    $('#today-date').textContent = 'No day card for today';
-    $('#today-budget').textContent = today.message || '';
-    return;
-  }
-  $('#today-date').textContent = fmtDate(day.day) + ' · ' + (day.phase || '—');
-  $('#today-budget').textContent = `${day.time_budget_min || 0} min budget · ${(day.blocks || []).length} blocks`;
-  const blocks = day.blocks || [];
-  if (!blocks.length) {
-    cont.innerHTML = '<div class="empty">Nothing scheduled. Rest day. 💤</div>';
-    return;
-  }
-  blocks.forEach(b => cont.appendChild(renderBlock(b)));
-}
-
-function renderRationale(md) {
-  $('#rationale-md').innerHTML = md ? mdToHtml(md) : '<div class="empty">Generate a plan to see the rationale.</div>';
-}
-
-function renderWeekStrip(days) {
-  const el = $('#week-strip');
-  el.innerHTML = '';
-  const ti = todayIso();
-  days.slice(0, 14).forEach(d => {
-    const dt = new Date(d.day);
-    const cell = document.createElement('div');
-    cell.className = 'week-day' + (d.day === ti ? ' today' : '');
-    const pending = (d.blocks || []).filter(b => b.state !== 'completed').length;
-    cell.innerHTML = `
-      <div class="d">${dt.toLocaleDateString(undefined,{weekday:'short'})}</div>
-      <div class="n">${dt.getDate()}</div>
-      <div class="p">${esc(d.phase || '')}</div>
-      <div class="c">${(d.blocks || []).length} blk</div>
-    `;
-    cell.addEventListener('click', () => openDayDetail(d));
-    el.appendChild(cell);
-  });
-}
-
-function openDayDetail(day) {
-  const body = $('#modal-body');
-  const title = $('#modal-title');
-  title.textContent = fmtDate(day.day) + ' — ' + (day.phase || '');
-  body.innerHTML = '';
-  const blocks = day.blocks || [];
-  if (!blocks.length) {
-    body.innerHTML = '<div class="empty">Rest day.</div>';
-  } else {
-    blocks.forEach(b => body.appendChild(renderBlock(b)));
-  }
-  $('#modal-footer').innerHTML = '<button class="btn" id="mc-close">Close</button>';
-  $('#mc-close').addEventListener('click', closeModal);
-  openModal();
-}
-
-// ─────────────────── Plan tab ───────────────────
-
-function renderPlan(plan) {
-  if (!plan) {
-    $('#current-plan-header').textContent = 'No plan yet. Fill in the form above to generate one.';
-    $('#stat-days-total').textContent = '—';
-    $('#stat-days-done').textContent = '—';
-    $('#stat-blocks').textContent = '—';
-    $('#full-schedule').innerHTML = '<div class="empty">No plan yet.</div>';
-    return;
-  }
-  const days = (plan.data && plan.data.days) || [];
-  const doneDays = days.filter(d => (d.blocks || []).every(b => b.state === 'completed') && (d.blocks || []).length > 0).length;
-  const totalBlocks = days.reduce((s,d) => s + ((d.blocks||[]).length), 0);
-  $('#current-plan-header').textContent = `${plan.name || 'Plan'} · created ${fmtShort(plan.created_at)} · ${days.length} days`;
-  $('#stat-days-total').textContent = days.length;
-  $('#stat-days-done').textContent  = doneDays;
-  $('#stat-blocks').textContent     = totalBlocks;
-
-  const fs = $('#full-schedule');
-  fs.innerHTML = '';
-  if (!days.length) { fs.innerHTML = '<div class="empty">Plan has no days.</div>'; return; }
-  days.forEach(d => {
-    const row = document.createElement('div');
-    row.className = 'block';
-    const phaseColor = { Foundation: '#0071e3', Consolidation: '#ff9f0a', Revision: '#ff3b30', Mock: '#bf5af2', Rest: '#8e8e93' }[d.phase] || '#0071e3';
-    row.style.borderLeft = '4px solid ' + phaseColor;
-    row.innerHTML = `
-      <div class="body">
-        <div class="title">${fmtShort(d.day)} — ${esc(d.phase || '—')}</div>
-        <div class="meta">${(d.blocks||[]).length} blocks · ${d.time_budget_min || 0} min budget</div>
-      </div>
-    `;
-    row.addEventListener('click', () => openDayDetail(d));
-    fs.appendChild(row);
-  });
-}
-
-// ─────────────────── Content tab ───────────────────
-
-function renderContentTree(bundle) {
-  const el = $('#content-tree');
-  el.innerHTML = '';
-  const cats = (bundle && bundle.categories) || [];
-  if (!cats.length) {
-    el.innerHTML = '<div class="empty">No LMS content found. Make sure your subscription covers at least one category.</div>';
-    return;
-  }
-  cats.forEach(cat => {
-    const catEl = document.createElement('div');
-    catEl.className = 'tree-cat';
-    const nCount = (cat.subcategories || []).reduce((s,sub) => s + (sub.topics || []).length, 0);
-    catEl.innerHTML = `
-      <div class="tree-cat-head">
-        <span class="ix">▸</span>
-        <span class="nm">${esc(cat.name)}</span>
-        <span class="ct">${nCount} topics</span>
-      </div>
-      <div class="tree-sub" style="display:none;"></div>
-    `;
-    const head = catEl.querySelector('.tree-cat-head');
-    const body = catEl.querySelector('.tree-sub');
-    head.addEventListener('click', () => {
-      const open = body.style.display === 'block';
-      body.style.display = open ? 'none' : 'block';
-      head.querySelector('.ix').textContent = open ? '▸' : '▾';
-    });
-    (cat.subcategories || []).forEach(sub => {
-      const subEl = document.createElement('div');
-      subEl.innerHTML = `<div class="tree-sub-head"><span>▸</span> ${esc(sub.name)} <span class="ct" style="margin-left:auto;color:var(--ink-3);font-size:11px;">${(sub.topics||[]).length} topics</span></div>`;
-      const subHead = subEl.querySelector('.tree-sub-head');
-      const topicsWrap = document.createElement('div');
-      topicsWrap.style.display = 'none';
-      subHead.addEventListener('click', () => {
-        const open = topicsWrap.style.display === 'block';
-        topicsWrap.style.display = open ? 'none' : 'block';
-        subHead.querySelector('span').textContent = open ? '▸' : '▾';
-      });
-      (sub.topics || []).forEach(topic => {
-        const prio = ((topic.priority_label || 'P3').match(/P[123]/) || ['P3'])[0].toLowerCase();
-        const counts = topic.content_counts || {};
-        const t = document.createElement('div');
-        t.className = 'tree-topic';
-        t.innerHTML = `
-          <span>${esc(topic.name)}</span>
-          <span class="prio ${prio}">${esc(topic.priority_label || 'P3')}</span>
-          <span class="counts">📄 ${counts.notes||0} · 🎥 ${counts.videos||0} · ❓ ${counts.mcqs||0}${counts.mocks?' · 🏆 '+counts.mocks:''}</span>
-        `;
-        t.addEventListener('click', () => openTopicDetail(topic, cat, sub));
-        topicsWrap.appendChild(t);
-      });
-      subEl.appendChild(topicsWrap);
-      body.appendChild(subEl);
-    });
-    el.appendChild(catEl);
-  });
-}
-
-function openTopicDetail(topic, cat, sub) {
-  const counts = topic.content_counts || {};
-  const cids = topic.content_ids || {};
-  $('#modal-title').textContent = topic.name;
-  const body = $('#modal-body');
-  body.innerHTML = `
-    <div class="sub" style="margin-bottom:14px;">${esc(cat.name)} › ${esc(sub.name)}</div>
-    <div class="stat-grid">
-      <div class="stat"><div class="big">${counts.notes||0}</div><div class="lbl">Notes</div></div>
-      <div class="stat"><div class="big">${counts.videos||0}</div><div class="lbl">Videos</div></div>
-      <div class="stat"><div class="big">${counts.mcqs||0}</div><div class="lbl">MCQs</div></div>
-      <div class="stat"><div class="big">${counts.mocks||0}</div><div class="lbl">Mocks</div></div>
-    </div>
-    <div style="margin-top:18px;display:flex;gap:8px;flex-wrap:wrap;">
-      ${counts.mcqs ? `<button class="btn primary" id="topic-mcq">Practice ${Math.min(20, counts.mcqs)} MCQs</button>` : ''}
-      ${(cids.videos||[]).length ? `<button class="btn" id="topic-video">Play first video</button>` : ''}
-      ${(cids.notes||[]).length  ? `<button class="btn" id="topic-notes">Open notes</button>` : ''}
-    </div>
-    ${topic.priority_label ? `<p class="help" style="margin-top:14px;">Priority: <b>${esc(topic.priority_label)}</b></p>` : ''}
-  `;
-  $('#modal-footer').innerHTML = '<button class="btn" id="mc-close">Close</button>';
-  $('#mc-close').addEventListener('click', closeModal);
-  const mcq = $('#topic-mcq'); if (mcq) mcq.addEventListener('click', () => runMcqSession(topic));
-  const vid = $('#topic-video'); if (vid) vid.addEventListener('click', () => openVideo(cids.videos[0], topic.name));
-  const nts = $('#topic-notes'); if (nts) nts.addEventListener('click', () => openNotes(cids.notes[0], topic.name));
-  openModal();
-}
-
-async function runMcqSession(topic) {
-  const body = $('#modal-body');
-  body.innerHTML = '<div class="skeleton"></div><div class="skeleton" style="width:80%"></div>';
-  $('#modal-title').textContent = `MCQs — ${topic.name}`;
-  try {
-    const batch = await API.mcqBatch(topic._id, 20);
-    const questions = batch.questions || batch.data || batch || [];
-    if (!questions.length) { body.innerHTML = '<div class="empty">No MCQs available for this topic.</div>'; return; }
-    const answers = {};
-    const runner = { ix: 0, questions, answers, topic };
-    renderMcqQuestion(runner);
-  } catch (e) {
-    body.innerHTML = `<div class="empty">Could not load MCQs: ${esc(e.message)}</div>`;
-  }
-}
-
-function renderMcqQuestion(runner) {
-  const q = runner.questions[runner.ix];
-  if (!q) return finishMcqSession(runner);
-  const body = $('#modal-body');
-  const qtext = q.question || q.question_text || q.text || q.title || '—';
-  const opts  = q.options || q.choices || [];
-  body.innerHTML = `
-    <div class="sub">Question ${runner.ix + 1} of ${runner.questions.length}</div>
-    <div class="mcq-q">
-      <div class="qtext">${esc(qtext)}</div>
-      <div class="mcq-opts">
-        ${opts.map((o, i) => `<div class="mcq-opt" data-ix="${i}">${esc(typeof o === 'string' ? o : (o.text || o.label || o.option || ''))}</div>`).join('')}
-      </div>
-    </div>
-  `;
-  $('#modal-footer').innerHTML = `
-    <button class="btn" id="mcq-skip">Skip</button>
-    <button class="btn primary" id="mcq-next" disabled>Next</button>
-  `;
-  let chosen = null;
-  body.querySelectorAll('.mcq-opt').forEach(el => {
-    el.addEventListener('click', () => {
-      body.querySelectorAll('.mcq-opt').forEach(x => x.classList.remove('sel'));
-      el.classList.add('sel');
-      chosen = parseInt(el.getAttribute('data-ix'), 10);
-      $('#mcq-next').disabled = false;
-    });
-  });
-  $('#mcq-skip').addEventListener('click', () => { runner.ix++; renderMcqQuestion(runner); });
-  $('#mcq-next').addEventListener('click', () => {
-    runner.answers[q._id || q.id || runner.ix] = chosen;
-    runner.ix++;
-    renderMcqQuestion(runner);
-  });
-}
-
-async function finishMcqSession(runner) {
-  const total = runner.questions.length;
-  const answered = Object.keys(runner.answers).length;
-  // Compute correctness if answers contain correct_index metadata
-  let correct = 0;
-  runner.questions.forEach(q => {
-    const given = runner.answers[q._id || q.id];
-    const correctIx = q.correct_index != null ? q.correct_index : (q.answer != null ? q.answer : null);
-    if (given != null && correctIx != null && given === correctIx) correct++;
-  });
-  // Log to /api/mcq-scores
-  try {
-    await API.postMcqScore({
-      topic: runner.topic.name,
-      date: todayIso(),
-      attempted: answered,
-      correct: correct,
-    });
-    showToast(`Logged ${answered} MCQs (${correct} correct)`);
-  } catch (e) { showToast('Could not log MCQ scores: ' + e.message); }
-
-  const body = $('#modal-body');
-  body.innerHTML = `
-    <h3>Session complete</h3>
-    <div class="stat-grid" style="margin-top:14px;">
-      <div class="stat"><div class="big">${answered}</div><div class="lbl">Answered</div></div>
-      <div class="stat"><div class="big">${correct}</div><div class="lbl">Correct</div></div>
-      <div class="stat"><div class="big">${answered ? Math.round(correct/answered*100) : 0}%</div><div class="lbl">Accuracy</div></div>
-    </div>
-  `;
-  $('#modal-footer').innerHTML = '<button class="btn primary" id="mc-close">Close</button>';
-  $('#mc-close').addEventListener('click', closeModal);
-}
-
-function openVideo(contentId, title) {
-  $('#modal-title').textContent = title || 'Video';
-  const url = `${LMS_API_BASE}/api/content/${encodeURIComponent(contentId)}/play?token=${encodeURIComponent(state.token)}`;
-  $('#modal-body').innerHTML = `
-    <div class="sub" style="margin-bottom:10px;">Streaming from your LMS subscription</div>
-    <div style="position:relative;padding-top:56.25%;background:#000;border-radius:8px;overflow:hidden;">
-      <iframe src="${esc(url)}" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
-    </div>
-    <p class="help" style="margin-top:10px;">If the video doesn't load, open it directly in the Sushruta app. Progress syncs back automatically.</p>
-  `;
-  $('#modal-footer').innerHTML = '<button class="btn primary" id="mc-close">Close</button>';
-  $('#mc-close').addEventListener('click', closeModal);
-  openModal();
-}
-
-function openNotes(contentId, title) {
-  $('#modal-title').textContent = title || 'Notes';
-  const url = `${LMS_API_BASE}/api/content/${encodeURIComponent(contentId)}/file?token=${encodeURIComponent(state.token)}`;
-  $('#modal-body').innerHTML = `
-    <div class="sub" style="margin-bottom:10px;">Reading from your LMS subscription</div>
-    <iframe src="${esc(url)}" style="width:100%;height:70vh;border:0;border-radius:8px;background:#fff;"></iframe>
-  `;
-  $('#modal-footer').innerHTML = '<button class="btn primary" id="mc-close">Close</button>';
-  $('#mc-close').addEventListener('click', closeModal);
-  openModal();
-}
-
-function openContentItem(item, block) {
-  const kind = item.content_kind || block.kind;
-  const title = item.title || (block.topic_ref && block.topic_ref.name) || kind;
-  if (kind === 'video')    return openVideo(item.content_id, title);
-  if (kind === 'notes')    return openNotes(item.content_id, title);
-  if (kind === 'mcq_set') {
-    const topic = { _id: item.topic_id, name: title };
-    $('#modal-title').textContent = 'MCQs — ' + title;
-    openModal();
-    return runMcqSession(topic);
-  }
-  // Fallback — just show the item metadata
-  $('#modal-title').textContent = title;
-  $('#modal-body').innerHTML = `<pre style="white-space:pre-wrap;font-size:12px;">${esc(JSON.stringify(item, null, 2))}</pre>`;
-  $('#modal-footer').innerHTML = '<button class="btn primary" id="mc-close">Close</button>';
-  $('#mc-close').addEventListener('click', closeModal);
-  openModal();
-}
-
-// ─────────────────── Progress tab ───────────────────
-
-async function loadProgressTab() {
-  // Hours donut — last 7 days from /api/study-sessions/daily-totals
-  try {
-    const daily = await API.sessionDaily();
-    const last7 = (daily.days || daily.data || daily || []).slice(-7);
-    const hours = last7.reduce((s,d) => s + ((d.minutes || d.total_minutes || 0) / 60), 0);
-    const target = 35; // 5h * 7
-    donut($('#donut-hours'), (hours / target) * 100, `${hours.toFixed(1)}h / ${target}h`);
-    // Heatmap
-    const hm = $('#heatmap');
-    hm.innerHTML = '';
-    const days90 = (daily.days || daily.data || daily || []).slice(-91);
-    const byIso = {};
-    days90.forEach(d => byIso[d.date || d.day] = (d.minutes || d.total_minutes || 0));
-    for (let i = 90; i >= 0; i--) {
-      const dt = new Date(); dt.setDate(dt.getDate() - i);
-      const iso = dt.toISOString().slice(0,10);
-      const m = byIso[iso] || 0;
-      const lvl = m >= 240 ? 'l4' : m >= 120 ? 'l3' : m >= 60 ? 'l2' : m > 0 ? 'l1' : '';
-      const cell = document.createElement('div');
-      cell.className = 'cell ' + lvl;
-      cell.title = `${iso}: ${m} min`;
-      hm.appendChild(cell);
-    }
-  } catch (e) { donut($('#donut-hours'), 0, '—'); }
-
-  // MCQ accuracy donut
-  try {
-    const summary = await API.mcqTopicSummary();
-    const rows = summary.topics || summary.data || summary || [];
-    const att = rows.reduce((s,r) => s + (r.attempted||0), 0);
-    const cor = rows.reduce((s,r) => s + (r.correct||0), 0);
-    donut($('#donut-mcq'), att ? cor/att*100 : 0, `${cor}/${att}`);
-    // Topic table
-    const ta = $('#topic-acc');
-    if (!rows.length) { ta.innerHTML = '<div class="empty">No MCQ data yet.</div>'; }
-    else {
-      rows.sort((a,b) => (a.correct/Math.max(1,a.attempted)) - (b.correct/Math.max(1,b.attempted)));
-      ta.innerHTML = `
-        <table class="simple">
-          <thead><tr><th>Topic</th><th>Attempted</th><th>Correct</th><th>Accuracy</th></tr></thead>
-          <tbody>${rows.map(r => `
-            <tr>
-              <td>${esc(r.topic)}</td>
-              <td>${r.attempted||0}</td>
-              <td>${r.correct||0}</td>
-              <td>${r.attempted ? Math.round(r.correct/r.attempted*100) : 0}%</td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      `;
-    }
-  } catch (e) { donut($('#donut-mcq'), 0, '—'); }
-
-  // Plan completion donut
-  const plan = state.plan;
-  if (plan) {
-    const days = (plan.data && plan.data.days) || [];
-    const blocks = days.flatMap(d => d.blocks || []);
-    const done = blocks.filter(b => b.state === 'completed').length;
-    donut($('#donut-plan'), blocks.length ? done/blocks.length*100 : 0, `${done}/${blocks.length}`);
-  } else { donut($('#donut-plan'), 0, 'no plan'); }
-
-  // Recall cards
-  try {
-    const r = await API.recallDue();
-    const cards = r.cards || r.data || r || [];
-    const rl = $('#recall-list');
-    if (!cards.length) { rl.innerHTML = '<div class="empty">No due cards. Nice work.</div>'; }
-    else {
-      rl.innerHTML = cards.slice(0,10).map(c => `
-        <div class="block">
-          <div class="kind recall">recall</div>
-          <div class="body">
-            <div class="title">${esc(c.topic || 'Card')}</div>
-            <div class="meta">${esc(c.subtopic || '')}</div>
-          </div>
-          <div class="actions">
-            ${[0,3,5].map(q => `<button class="btn sm" data-card="${c.id}" data-q="${q}">${q}</button>`).join('')}
-          </div>
-        </div>
-      `).join('');
-      rl.querySelectorAll('button[data-card]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          try {
-            await API.recallReview({ card_id: parseInt(btn.getAttribute('data-card'),10), quality: parseInt(btn.getAttribute('data-q'),10) });
-            showToast('Reviewed');
-            loadProgressTab();
-          } catch (e) { showToast('Recall failed: ' + e.message); }
-        });
-      });
-    }
-  } catch (e) { /* silent */ }
-}
-
-// ─────────────────── Coach tab ───────────────────
-
-async function loadCoachTab() {
-  // Leaderboard (always)
-  try {
-    const lb = await API.leaderboard();
-    const rows = lb.rows || lb.leaderboard || lb.data || lb || [];
-    const el = $('#leaderboard');
-    if (!rows.length) { el.innerHTML = '<div class="empty">No leaderboard data yet. Opt in from Settings.</div>'; }
-    else {
-      el.innerHTML = `
-        <table class="simple">
-          <thead><tr><th>#</th><th>Name</th><th>Streak</th><th>Accuracy</th><th>Hours</th></tr></thead>
-          <tbody>${rows.slice(0,10).map((r,i) => `
-            <tr>
-              <td>${i+1}</td>
-              <td>${esc(r.name || r.alias || 'Anon')}</td>
-              <td>${r.streak || 0}</td>
-              <td>${r.accuracy != null ? Math.round(r.accuracy*100) + '%' : '—'}</td>
-              <td>${r.hours != null ? r.hours.toFixed(1) : '—'}</td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      `;
-    }
-  } catch (e) { $('#leaderboard').innerHTML = '<div class="empty">Leaderboard unavailable.</div>'; }
-}
-
-async function refreshCoach() {
-  const body = $('#coach-body');
-  body.innerHTML = '<div class="skeleton"></div><div class="skeleton" style="width:85%"></div><div class="skeleton" style="width:72%"></div>';
-  try {
-    let r;
-    try { r = await API.coachV2(); }
-    catch(e) { r = await API.coachV1(); }
-    state.coach = r;
-    if (r.headline) $('#coach-headline').textContent = r.headline;
-    else if (r.analysis) $('#coach-headline').textContent = 'Your week in review';
-    const md = r.rendered_md || r.analysis || '';
-    body.innerHTML = mdToHtml(md) || '<div class="empty">Coach had nothing to say this week.</div>';
-    // Weak / strong topics
-    const weak = r.weak_topics || (r.what_to_fix || []);
-    const strong = r.strong_topics || (r.what_worked || []);
-    $('#weak-topics').innerHTML = weak.length
-      ? weak.map(t => `<div class="tree-topic" style="border-left-color:var(--err);">${esc(typeof t === 'string' ? t : (t.topic || t.name || JSON.stringify(t)))}</div>`).join('')
-      : '<div class="empty">No weak topics flagged.</div>';
-    $('#strong-topics').innerHTML = strong.length
-      ? strong.map(t => `<div class="tree-topic" style="border-left-color:var(--ok);">${esc(typeof t === 'string' ? t : (t.topic || t.name || JSON.stringify(t)))}</div>`).join('')
-      : '<div class="empty">Build some mastery — none yet.</div>';
-  } catch (e) {
-    body.innerHTML = `<div class="empty">Coach unavailable: ${esc(e.message)}</div>`;
-  }
-}
-
-// ─────────────────── Modal plumbing ───────────────────
-
-function openModal()  { $('#modal-backdrop').classList.add('open'); }
-function closeModal() { $('#modal-backdrop').classList.remove('open'); }
-$('#modal-close').addEventListener('click', closeModal);
-$('#modal-backdrop').addEventListener('click', (e) => { if (e.target === $('#modal-backdrop')) closeModal(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
-
-// ─────────────────── Tab switching ───────────────────
-
-function switchTab(name) {
-  state.activeTab = name;
-  $$('.tab-panel').forEach(p => p.classList.toggle('hide', p.getAttribute('data-panel') !== name));
-  $$('nav.tabs button').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === name));
-  if (name === 'content' && !state.bundle) loadContentTab();
-  if (name === 'progress') loadProgressTab();
-  if (name === 'coach') loadCoachTab();
-}
-$$('nav.tabs button').forEach(b => b.addEventListener('click', () => switchTab(b.getAttribute('data-tab'))));
-
-async function loadContentTab() {
-  try {
-    const bundle = await API.bundle();
-    state.bundle = bundle;
-    renderContentTree(bundle);
-  } catch (e) {
-    $('#content-tree').innerHTML = `<div class="empty">Could not load content: ${esc(e.message)}</div>`;
-  }
-}
-
-// ─────────────────── Plan generator ───────────────────
-
-$('#gen-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  const customDates = (fd.get('custom_rest_dates') || '').split(',').map(s => s.trim()).filter(Boolean);
-  const body = {
-    name: fd.get('name'),
-    exam_date: fd.get('exam_date'),
-    hours_per_day: parseFloat(fd.get('hours_per_day')),
-    rest_days_per_week: parseInt(fd.get('rest_days_per_week'), 10),
-    custom_rest_dates: customDates,
-    use_lms_content: fd.get('use_lms_content') === 'true',
+  const fetchers = {
+    plan: api('/api/plans/current').catch(()=>null),
+    signal: api('/api/signal').catch(()=>null),
+    mastery: api('/api/ml/mastery').catch(()=>null),
+    streak: api('/api/streak').catch(()=>null),
+    recommendations: api('/api/ml/recommendations?n=3').catch(()=>null),
+    readiness: api('/api/readiness').catch(()=>null),
+    runway: api('/api/projections/runway').catch(()=>null),
+    briefing: api('/api/ai/daily-briefing').catch(()=>null),
   };
-  const btn = e.target.querySelector('button[type=submit]');
-  btn.disabled = true; btn.textContent = 'Generating… (~15s)';
-  try {
-    await API.generate(body);
-    showToast('Plan generated');
-    await bootstrap(false);
-    switchTab('today');
-  } catch (e) {
-    showToast('Plan generation failed: ' + e.message);
-  } finally {
-    btn.disabled = false; btn.textContent = 'Generate plan';
+  const keys = Object.keys(fetchers);
+  const results = await Promise.all(Object.values(fetchers));
+  keys.forEach((k,i) => state[k] = results[i]);
+
+  if (state.streak && state.streak.current != null) {
+    document.getElementById('streakPill').textContent = state.streak.current + ' day streak';
   }
-});
+  renderTab(currentTab());
+}
 
-$('#adapt-btn').addEventListener('click', async () => {
-  $('#adapt-btn').disabled = true;
-  try {
-    await API.adaptPlan();
-    showToast('Plan adapted to your weak areas');
-    await bootstrap(false);
-  } catch (e) { showToast('Adapt failed: ' + e.message); }
-  finally { $('#adapt-btn').disabled = false; }
-});
+function currentTab() {
+  const active = document.querySelector('.nav button.active');
+  return active ? active.dataset.tab : 'dashboard';
+}
 
-$('#coach-refresh').addEventListener('click', refreshCoach);
+function renderTab(tab) {
+  const fns = {
+    dashboard: renderDashboard, planner: renderPlanner, weekly: renderWeekly,
+    daily: renderDaily, progress: renderProgress, analytics: renderAnalytics,
+    timer: renderTimer, recall: renderRecall, coach: renderCoach,
+    leaderboard: renderLeaderboard, syllabus: renderSyllabus,
+  };
+  if (fns[tab]) fns[tab]();
+}
 
-// Top bar buttons
-$('#tb-refresh').addEventListener('click', async () => {
-  try { await API.lmsRefresh(); showToast('Content refreshed'); state.bundle = null; if (state.activeTab === 'content') loadContentTab(); } catch(e) { showToast('Refresh failed: ' + e.message); }
-});
-$('#tb-logout').addEventListener('click', () => {
-  if (!confirm('Sign out?')) return;
-  localStorage.removeItem('lms_jwt'); location.replace('/v2');
-});
-$('#settings-logout').addEventListener('click', () => {
-  if (!confirm('Sign out?')) return;
-  localStorage.removeItem('lms_jwt'); location.replace('/v2');
-});
-$('#gate-pdf').addEventListener('click', () => {
-  if (state.plan && state.plan.id) window.open('/api/plans/' + state.plan.id + '/download.pdf?token=' + encodeURIComponent(state.token), '_blank');
-  else showToast('No plan to download.');
-});
+function renderDashboard() {
+  const el = document.getElementById('tab-dashboard');
+  const r = state.readiness || {score: 0, band: 'red', factors: [], recommendation: 'Loading…'};
+  const b = (state.briefing && state.briefing.briefing) || {};
+  const recs = (state.recommendations && state.recommendations.recommendations) || [];
+  const computed = (state.signal && state.signal.signal && state.signal.signal.computed) || {};
 
-// ════════════════════════ LOGIN ════════════════════════
-
-function showLoginForm(notice) {
-  document.body.innerHTML = `
-    <style>
-      .login-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center;
-        font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-        background:radial-gradient(circle at 50% 0%, rgba(0,113,227,0.08), transparent 60%); padding:20px; }
-      .login-card { background:#fff; color:#1d1d1f; border:1px solid rgba(0,0,0,0.08); border-radius:18px;
-        padding:36px 32px; max-width:380px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.12); }
-      @media (prefers-color-scheme: dark) { .login-card { background:#1c1c1e; color:#f5f5f7; border-color:rgba(255,255,255,0.08); } }
-      .login-card h1 { margin:0 0 4px; font-size:22px; font-weight:600; letter-spacing:-0.3px; }
-      .login-card .sub { margin:0 0 24px; font-size:13px; opacity:0.6; }
-      .login-card label { display:block; font-size:12px; font-weight:500; opacity:0.7; margin-bottom:6px; }
-      .login-card input { width:100%; padding:12px 14px; font-size:15px; border-radius:10px;
-        border:1px solid rgba(0,0,0,0.14); background:rgba(0,0,0,0.02); color:inherit; box-sizing:border-box; outline:none; }
-      @media (prefers-color-scheme: dark) { .login-card input { border-color:rgba(255,255,255,0.14); background:rgba(255,255,255,0.04); } }
-      .login-card input:focus { border-color:#0071e3; }
-      .login-card input[inputmode="numeric"] { font-size:22px; letter-spacing:6px; text-align:center; font-family:ui-monospace,monospace; }
-      .login-card button { width:100%; padding:13px; font-size:15px; font-weight:600; background:#0071e3; color:#fff;
-        border:0; border-radius:10px; cursor:pointer; margin-top:16px; }
-      .login-card button:disabled { opacity:0.5; cursor:not-allowed; }
-      .login-card .link { display:block; text-align:center; margin-top:14px; font-size:13px; color:#0071e3;
-        text-decoration:none; cursor:pointer; background:none; border:0; padding:0; }
-      .login-card .notice { margin-bottom:16px; padding:10px 12px; border-radius:8px;
-        background:rgba(255,149,0,0.1); color:#b3541a; font-size:13px; }
-      .login-card .error { margin-top:12px; padding:10px 12px; border-radius:8px;
-        background:rgba(255,59,48,0.1); color:#d70015; font-size:13px; }
-      .login-card .ok { margin-top:12px; padding:10px 12px; border-radius:8px;
-        background:rgba(52,199,89,0.1); color:#248a3d; font-size:13px; }
-      .login-card .masked { font-size:13px; opacity:0.7; margin-bottom:16px; }
-    </style>
-    <div class="login-wrap">
-      <div class="login-card" id="login-card">
-        <h1>Cortex Surgery Planner</h1>
-        <p class="sub">Sign in with your Sushruta LMS account</p>
-        ${notice ? `<div class="notice">${esc(notice)}</div>` : ''}
-        <div id="login-step-phone">
-          <label for="login-phone">Mobile number</label>
-          <input id="login-phone" type="tel" inputmode="numeric" maxlength="10" placeholder="10-digit mobile" autocomplete="tel">
-          <button id="login-send-btn">Send OTP</button>
-          <div id="login-phone-msg"></div>
+  el.innerHTML = `
+    <div class="grid grid-2">
+      <div class="card big">
+        <h2>Readiness</h2>
+        <div class="sub">Multi-factor score</div>
+        ${ringSVG(r.score, r.band)}
+        <p style="text-align:center;margin:14px 0 0;font-size:14px;color:var(--muted)">${r.recommendation || ''}</p>
+      </div>
+      <div class="card big">
+        <h2>Today</h2>
+        <div class="sub">${b.headline || 'No briefing yet'}</div>
+        <p style="font-size:14px;line-height:1.55;margin:10px 0">${b.focus || ''}</p>
+        <div style="margin-top:10px">
+          ${(b.blocks||[]).slice(0,4).map(bl => `
+            <div class="block">
+              <div>
+                <div class="title">${escapeHtml(bl.title || 'block')}</div>
+                <div class="why">${escapeHtml(bl.why || '')}</div>
+              </div>
+              <div class="right"><span class="kind ${bl.kind||''}">${bl.kind||''}</span><span class="min">${bl.minutes||0} min</span></div>
+            </div>
+          `).join('')}
         </div>
-        <div id="login-step-otp" style="display:none;">
-          <div class="masked">OTP sent to <b id="login-masked-phone"></b></div>
-          <label for="login-otp">4-digit OTP</label>
-          <input id="login-otp" type="text" inputmode="numeric" maxlength="4" autocomplete="one-time-code">
-          <button id="login-verify-btn">Verify &amp; sign in</button>
-          <button class="link" id="login-back-btn">&larr; Use a different number</button>
-          <div id="login-otp-msg"></div>
+        <p style="font-size:13px;color:var(--muted);margin-top:14px;font-style:italic">${b.encouragement || ''}</p>
+      </div>
+    </div>
+
+    <div class="grid grid-4" style="margin-top:20px">
+      ${statCard('Avg mastery', Math.round(((state.mastery && state.mastery.avg_mastery) || 0) * 100) + '%', 'mastery vector')}
+      ${statCard('Coverage', Math.round(((state.mastery && state.mastery.coverage_pct) || 0) * 100) + '%', 'syllabus touched')}
+      ${statCard('Streak', ((state.streak && state.streak.current) || 0) + 'd', 'longest ' + ((state.streak && state.streak.longest) || 0) + 'd')}
+      ${statCard('Min/day (14d)', Math.round((state.streak && state.streak.avg_minutes_last_14d) || 0), 'rolling avg')}
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <h2>What to do next</h2>
+      <div class="sub">AI-generated, ranked by accuracy lift per minute</div>
+      ${recs.length ? recs.map(rec => `
+        <div class="block">
+          <div style="flex:1">
+            <div class="title">${escapeHtml(rec.headline || rec.topic_name || '')}</div>
+            <div class="why">${escapeHtml(rec.action || '')}</div>
+            <div class="why" style="margin-top:4px;font-style:italic">${escapeHtml(rec.why || '')}</div>
+          </div>
+          <div class="right">
+            <span class="min">${rec.minutes_est || 30} min</span>
+            <button class="btn sm">Start</button>
+          </div>
         </div>
+      `).join('') : '<p class="sub">No recommendations yet — generate a plan first.</p>'}
+    </div>
+
+    <div class="grid grid-2" style="margin-top:20px">
+      <div class="card">
+        <h2>Mastery factors</h2>
+        <div class="sub">Contribution to your readiness score</div>
+        ${(r.factors||[]).map(f => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)">
+            <span style="text-transform:capitalize">${f.name}</span>
+            <span style="display:flex;gap:10px;align-items:center">
+              <span class="bar"><i style="width:${Math.round((f.value||0)*100)}%"></i></span>
+              <span style="font-weight:600;font-size:13px;width:48px;text-align:right">${Math.round((f.value||0)*100)}%</span>
+            </span>
+          </div>
+        `).join('')}
+      </div>
+      <div class="card">
+        <h2>Runway</h2>
+        <div class="sub">Days to bottleneck mastery</div>
+        ${state.runway ? `
+          <div class="stat" style="margin:14px 0">
+            <div class="num">${state.runway.days_required_bottleneck || 0}d</div>
+            <div class="lab">required vs ${state.runway.days_remaining || 0}d remaining</div>
+          </div>
+          <p class="${state.runway.feasible?'pill green':'pill red'}" style="display:inline-block;margin-top:6px">
+            ${state.runway.feasible ? 'On track' : 'Behind schedule'}
+          </p>
+          <p style="font-size:13px;color:var(--muted);margin-top:10px">Total attempts needed: <b>${state.runway.total_attempts_needed || 0}</b></p>
+        ` : '<p class="sub">No active plan.</p>'}
       </div>
     </div>
   `;
-  const g = (id) => document.getElementById(id);
-  let phone = '';
-  async function sendOtp() {
-    const val = (g('login-phone').value || '').trim();
-    if (!/^\d{10}$/.test(val)) { g('login-phone-msg').innerHTML = '<div class="error">Enter a valid 10-digit mobile number.</div>'; return; }
-    phone = val;
-    g('login-send-btn').disabled = true; g('login-send-btn').textContent = 'Sending…';
-    g('login-phone-msg').innerHTML = '';
-    try {
-      const r = await fetch(LMS_API_BASE + '/api/sendOtpViaSms', {
-        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ phone }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok || j.success === false) throw new Error(j.message || 'Could not send OTP.');
-      g('login-step-phone').style.display = 'none';
-      g('login-step-otp').style.display = 'block';
-      g('login-masked-phone').textContent = '+91 ' + phone.slice(0,2) + '••••' + phone.slice(-2);
-      setTimeout(() => g('login-otp').focus(), 50);
-    } catch (e) {
-      g('login-phone-msg').innerHTML = '<div class="error">' + esc(e.message) + '</div>';
-    } finally {
-      g('login-send-btn').disabled = false; g('login-send-btn').textContent = 'Send OTP';
-    }
-  }
-  async function verifyOtp() {
-    const userOTP = (g('login-otp').value || '').trim();
-    if (!/^\d{4}$/.test(userOTP)) { g('login-otp-msg').innerHTML = '<div class="error">Enter the 4-digit OTP.</div>'; return; }
-    g('login-verify-btn').disabled = true; g('login-verify-btn').textContent = 'Verifying…';
-    g('login-otp-msg').innerHTML = '';
-    try {
-      const r = await fetch(LMS_API_BASE + '/api/loginViaSms', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          phone, userOTP, deviceType:'web',
-          deviceId: getDeviceId(),
-          deviceName: (navigator.userAgent || 'Browser').slice(0,80),
-          deviceUniqueId: getDeviceId(),
-        }),
-      });
-      const j = await r.json().catch(() => ({}));
-      const token = (j && j.data && j.data.token) || j.token;
-      if (!r.ok || !token) throw new Error((j && (j.message || (j.data && j.data.message))) || 'Invalid OTP.');
-      localStorage.setItem('lms_jwt', token); state.token = token;
-      g('login-otp-msg').innerHTML = '<div class="ok">Signed in. Loading your planner…</div>';
-      setTimeout(() => location.replace('/v2'), 300);
-    } catch (e) {
-      g('login-otp-msg').innerHTML = '<div class="error">' + esc(e.message) + '</div>';
-    } finally {
-      g('login-verify-btn').disabled = false; g('login-verify-btn').textContent = 'Verify & sign in';
-    }
-  }
-  g('login-send-btn').addEventListener('click', sendOtp);
-  g('login-verify-btn').addEventListener('click', verifyOtp);
-  g('login-back-btn').addEventListener('click', () => { g('login-step-otp').style.display='none'; g('login-step-phone').style.display='block'; g('login-otp-msg').innerHTML=''; });
-  g('login-phone').addEventListener('keydown', (e) => { if (e.key==='Enter') sendOtp(); });
-  g('login-otp').addEventListener('keydown',   (e) => { if (e.key==='Enter') verifyOtp(); });
-  setTimeout(() => g('login-phone').focus(), 50);
 }
 
-// ════════════════════════ BOOTSTRAP ════════════════════════
+function statCard(label, value, sub) {
+  return '<div class="card"><div class="stat"><div class="num">'+value+'</div><div class="lab">'+label+'</div>'+(sub?'<div class="delta">'+sub+'</div>':'')+'</div></div>';
+}
 
-async function bootstrap(firstRun = true) {
-  if (!state.token) { showLoginForm(); return; }
+function ringSVG(score, band) {
+  const colours = {green:'#34c759', yellow:'#ffcc00', red:'#ff3b30'};
+  const c = colours[band] || '#0071e3';
+  const pct = Math.max(0, Math.min(100, score));
+  const r = 70, circ = 2 * Math.PI * r;
+  const off = circ - (pct/100) * circ;
+  return `
+    <div class="ring">
+      <svg width="160" height="160">
+        <circle cx="80" cy="80" r="${r}" fill="none" stroke="#eef0f3" stroke-width="14"/>
+        <circle cx="80" cy="80" r="${r}" fill="none" stroke="${c}" stroke-width="14"
+                stroke-dasharray="${circ}" stroke-dashoffset="${off}" stroke-linecap="round"/>
+      </svg>
+      <div class="center"><div class="num">${pct}</div><div class="lab">${band}</div></div>
+    </div>`;
+}
+
+function renderPlanner() {
+  const el = document.getElementById('tab-planner');
+  const today = new Date().toISOString().slice(0,10);
+  const ninety = new Date(Date.now()+90*86400000).toISOString().slice(0,10);
+  el.innerHTML = `
+    <div class="grid grid-2">
+      <div class="card big">
+        <h2>Generate a new plan</h2>
+        <div class="sub">All knobs adapt to your LMS performance signal</div>
+        <div class="row">
+          <div class="field"><label>Plan name</label><input id="planName" value="My NEET SS Plan"/></div>
+          <div class="field"><label>Daily minutes</label><input id="planMinutes" type="number" value="240" min="30" max="720"/></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Start date</label><input id="planStart" type="date" value="${today}"/></div>
+          <div class="field"><label>End date</label><input id="planEnd" type="date" value="${ninety}"/></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Rest days/week</label><input id="planRest" type="number" value="1" min="0" max="2"/></div>
+          <div class="field"><label>Mocks total</label><input id="planMocks" type="number" value="12" min="0" max="50"/></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Min/MCQ</label><input id="planMpm" type="number" step="0.1" value="1.5"/></div>
+          <div class="field"><label>Revision rounds</label><input id="planRev" type="number" value="2" min="1" max="3"/></div>
+        </div>
+        <button class="btn" style="width:100%;justify-content:center;margin-top:6px" onclick="generatePlan()">
+          Generate adaptive plan
+        </button>
+      </div>
+
+      <div class="card big">
+        <h2>Current plan</h2>
+        ${state.plan && state.plan.plan ? `
+          <div class="sub">${escapeHtml(state.plan.plan.name)}</div>
+          <div class="stat" style="margin:14px 0">
+            <div class="num">${((state.plan.plan.data && state.plan.plan.data.days) || []).length}</div>
+            <div class="lab">days scheduled</div>
+          </div>
+          <div class="btn-row">
+            <button class="btn ghost sm" onclick="replan()">↻ Replan now</button>
+            <button class="btn outline sm" onclick="downloadWeeklySnapshot()">📄 Weekly PDF</button>
+          </div>
+          ${state.plan.plan.ai_rationale_md ? `
+            <details style="margin-top:14px"><summary style="cursor:pointer;font-weight:600;font-size:13px">AI rationale</summary>
+            <div style="font-size:13px;color:var(--muted);margin-top:8px;white-space:pre-wrap">${escapeHtml(state.plan.plan.ai_rationale_md)}</div>
+            </details>
+          ` : ''}
+        ` : '<p class="sub">No plan yet. Generate one →</p>'}
+      </div>
+    </div>
+  `;
+}
+
+async function generatePlan() {
+  const minutes = parseInt(document.getElementById('planMinutes').value || 240);
+  const body = {
+    name: document.getElementById('planName').value || 'My Plan',
+    daily_minutes: minutes,
+    hours_per_day: minutes / 60,
+    start_date: document.getElementById('planStart').value,
+    end_date: document.getElementById('planEnd').value,
+    rest_days_per_week: parseInt(document.getElementById('planRest').value || 1),
+    mocks_count: parseInt(document.getElementById('planMocks').value || 12),
+    min_per_mcq: parseFloat(document.getElementById('planMpm').value || 1.5),
+    revision_rounds: parseInt(document.getElementById('planRev').value || 2),
+    use_lms_content: true,
+  };
+  toast('Generating plan…');
   try {
-    const me = await API.me();
-    renderMe(me);
-
-    const today = await API.today();
-    state.today = today;
-    renderToday(today);
-
-    const cur = await API.current();
-    if (cur.plan) {
-      state.plan = cur.plan;
-      renderRationale(cur.plan.ai_rationale_md || '');
-      renderPlan(cur.plan);
-      try {
-        const wk = await API.week(cur.plan.id, todayIso());
-        state.weekDays = wk.days || [];
-        renderWeekStrip(state.weekDays);
-      } catch (e) { /* non-fatal */ }
-    } else {
-      renderPlan(null);
-      renderRationale('');
-      renderWeekStrip([]);
-    }
-  } catch (e) {
-    if (e.message !== 'subscription_required' && e.message !== 'unauthorized') {
-      console.error('bootstrap failed', e);
-      showToast('Load error: ' + e.message);
-    }
-  }
+    await api('/api/plans/generate', { method:'POST', body: JSON.stringify(body) });
+    toast('Plan ready ✓');
+    refreshAll();
+  } catch (e) { toast('Failed: ' + e.message); }
 }
 
-bootstrap();
+async function replan() {
+  toast('Replanning…');
+  try { await api('/api/ml/replan', { method:'POST' }); toast('Replanned ✓'); refreshAll(); }
+  catch (e) { toast('Replan failed: '+e.message); }
+}
+
+function renderWeekly() {
+  const el = document.getElementById('tab-weekly');
+  const days = (state.plan && state.plan.plan && state.plan.plan.data && state.plan.plan.data.days) || [];
+  const today = new Date().toISOString().slice(0,10);
+  const upcoming = days.filter(d => d.day >= today).slice(0, 14);
+  el.innerHTML = `
+    <div class="card">
+      <h2>Next 14 days</h2>
+      <div class="sub">${upcoming.length} day cards</div>
+      ${upcoming.length ? upcoming.map(d => renderDay(d)).join('') : '<p class="sub">No upcoming days. Generate a plan first.</p>'}
+    </div>
+  `;
+}
+
+function renderDay(d) {
+  return `
+    <div class="day">
+      <div class="head">
+        <span class="date">${d.day}</span>
+        <span class="phase">${d.phase || ''} · ${d.time_budget_min || 0} min</span>
+      </div>
+      ${(d.blocks||[]).map(b => `
+        <div class="block">
+          <div style="flex:1">
+            <div class="title">${escapeHtml(b.title || b.topic_name || 'block')}</div>
+            <div class="why">${escapeHtml(b.rationale || b.why || '')}</div>
+          </div>
+          <div class="right">
+            <span class="kind ${b.kind||''}">${b.kind||''}</span>
+            <span class="min">${b.estimated_minutes || 0} min</span>
+            <div class="actions">
+              <button class="btn sm ghost" onclick="completeBlock('${b.block_id}')">✓</button>
+              <button class="btn sm outline" onclick="skipBlock('${b.block_id}')">↷</button>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+async function completeBlock(id) {
+  try { await api('/api/blocks/'+id+'/complete', {method:'POST'}); toast('Done ✓'); refreshAll(); }
+  catch(e){ toast(e.message); }
+}
+async function skipBlock(id) {
+  try { await api('/api/blocks/'+id+'/skip', {method:'POST'}); toast('Skipped'); refreshAll(); }
+  catch(e){ toast(e.message); }
+}
+
+async function renderDaily() {
+  const el = document.getElementById('tab-daily');
+  let today;
+  try { today = await api('/api/me/today'); } catch(e){ el.innerHTML = '<div class="card"><p class="sub">'+e.message+'</p></div>'; return; }
+  if (!today.has_plan || !today.day) {
+    el.innerHTML = '<div class="card"><h2>No day card</h2><p class="sub">'+(today.message||'')+'</p></div>';
+    return;
+  }
+  el.innerHTML = '<div class="card">'+renderDay(today.day)+'</div>';
+}
+
+async function renderProgress() {
+  const el = document.getElementById('tab-progress');
+  const v = (state.mastery && state.mastery.vector) || {};
+  const weakest = (state.mastery && state.mastery.weakest) || [];
+  const dailyResp = await api('/api/streak?days=91').catch(()=>null);
+  const days = (dailyResp && dailyResp.days) || [];
+
+  el.innerHTML = `
+    <div class="grid grid-2">
+      <div class="card">
+        <h2>Mastery radar</h2>
+        <div class="sub">${Object.keys(v).length} topics tracked</div>
+        ${radarSVG(Object.values(v).slice(0,12))}
+      </div>
+      <div class="card">
+        <h2>Activity heatmap (90d)</h2>
+        <div class="sub">Day-by-day study minutes</div>
+        <div class="heatmap" style="margin-top:10px">
+          ${heatmapCells(days)}
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <h2>Weakest topics</h2>
+      <table>
+        <thead><tr><th>Topic</th><th>Mastery</th><th>Accuracy</th><th>Attempted</th><th>Action</th></tr></thead>
+        <tbody>
+          ${weakest.map(w => `
+            <tr>
+              <td>${escapeHtml(w.topic_name || w.topic_id || '')}</td>
+              <td><span class="bar red"><i style="width:${Math.round((w.mastery||0)*100)}%"></i></span> ${Math.round((w.mastery||0)*100)}%</td>
+              <td>${(w.drivers&&w.drivers.accuracy)||0}%</td>
+              <td>${(w.drivers&&w.drivers.attempted)||0}</td>
+              <td><button class="btn sm" onclick="explainWeakness('${w.topic_id}')">Explain</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function radarSVG(rows) {
+  if (!rows.length) return '<p class="sub">No mastery data yet.</p>';
+  const n = Math.min(rows.length, 12);
+  const cx = 180, cy = 180, R = 140;
+  let polyPts = '', labelEls = '';
+  for (let i = 0; i < n; i++) {
+    const ang = (Math.PI * 2 * i / n) - Math.PI/2;
+    const m = rows[i].mastery || 0;
+    const r = R * m;
+    const x = cx + r*Math.cos(ang), y = cy + r*Math.sin(ang);
+    polyPts += `${x},${y} `;
+    const lx = cx + (R+18)*Math.cos(ang), ly = cy + (R+18)*Math.sin(ang);
+    labelEls += `<text x="${lx}" y="${ly}" font-size="9" text-anchor="middle" fill="#86868b">${(rows[i].topic_name||'').slice(0,12)}</text>`;
+  }
+  let rings = '';
+  [0.25, 0.5, 0.75, 1].forEach(s => {
+    rings += `<circle cx="${cx}" cy="${cy}" r="${R*s}" fill="none" stroke="#e5e5ea"/>`;
+  });
+  return `<svg viewBox="0 0 360 360" width="100%" style="max-width:380px;display:block;margin:auto">
+    ${rings}
+    <polygon points="${polyPts}" fill="rgba(0,113,227,0.22)" stroke="#0071e3" stroke-width="2"/>
+    ${labelEls}
+  </svg>`;
+}
+
+function heatmapCells(days) {
+  if (!days.length) return Array(91).fill('<div class="cell"></div>').join('');
+  return days.slice(-91).map(d => {
+    const m = d.minutes || 0;
+    const lvl = m === 0 ? '' : (m < 60 ? 'l1' : m < 120 ? 'l2' : m < 240 ? 'l3' : 'l4');
+    return `<div class="cell ${lvl}" title="${d.date||''}: ${m} min"></div>`;
+  }).join('');
+}
+
+async function renderAnalytics() {
+  const el = document.getElementById('tab-analytics');
+  el.innerHTML = '<div class="card"><p class="sub">Loading…</p></div>';
+  let bkt, diag;
+  try {
+    [bkt, diag] = await Promise.all([
+      api('/api/bkt/state').catch(()=>({state:{}})),
+      api('/api/ai/diagnostics').catch(()=>null),
+    ]);
+  } catch(e) { el.innerHTML = '<div class="card">'+e.message+'</div>'; return; }
+  const bktRows = Object.entries((bkt && bkt.state) || {}).slice(0, 12);
+  const cog = (diag && diag.cognitive_distribution) || {};
+  const tt = (diag && diag.time_anomalies) || {};
+
+  el.innerHTML = `
+    <div class="grid grid-2">
+      <div class="card">
+        <h2>BKT mastery state</h2>
+        <div class="sub">Bayesian Knowledge Tracing</div>
+        <table>
+          <thead><tr><th>Topic</th><th>p(known)</th><th>p(next correct)</th></tr></thead>
+          <tbody>${bktRows.map(([tid, r]) => `
+            <tr><td>${tid.slice(-8)}</td>
+              <td><span class="bar"><i style="width:${Math.round((r.p_known||0)*100)}%"></i></span> ${Math.round((r.p_known||0)*100)}%</td>
+              <td>${Math.round((r.p_correct_next||0)*100)}%</td></tr>
+          `).join('')}</tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2>Cognitive distribution</h2>
+        <div class="sub">Bloom-level accuracy split</div>
+        ${Object.entries(cog).map(([level, r]) => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)">
+            <span style="text-transform:capitalize">${level}</span>
+            <span><span class="bar green"><i style="width:${r.accuracy_pct||0}%"></i></span> ${r.accuracy_pct||0}% (${r.attempted||0})</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <h2>Time anomalies</h2>
+      <div class="sub">${tt.rushed_count||0} rushed wrong-answer attempts · ${tt.stuck_count||0} stuck attempts (last 30d)</div>
+    </div>
+  `;
+}
+
+let timerInt = null, timerSec = 25*60, timerRunning = false;
+function renderTimer() {
+  const el = document.getElementById('tab-timer');
+  el.innerHTML = `
+    <div class="card big" style="max-width:480px;margin:0 auto;text-align:center">
+      <h2>Focus Timer</h2>
+      <div class="sub">Pomodoro · 25 min focus + 5 min break</div>
+      <div style="font-size:84px;font-weight:700;letter-spacing:-3px;margin:24px 0" id="timerDisplay">25:00</div>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn" onclick="startTimer()">Start</button>
+        <button class="btn ghost" onclick="pauseTimer()">Pause</button>
+        <button class="btn outline" onclick="resetTimer()">Reset</button>
+      </div>
+      <div class="row" style="margin-top:24px">
+        <div class="field"><label>Topic</label><input id="timerTopic" placeholder="e.g. Adrenal physiology"/></div>
+        <div class="field"><label>Duration (min)</label><input id="timerDur" type="number" value="25"/></div>
+      </div>
+      <button class="btn ghost sm" onclick="logSession()">Log session</button>
+    </div>
+  `;
+  updateTimerDisplay();
+}
+function updateTimerDisplay() {
+  const m = Math.floor(timerSec/60), s = timerSec%60;
+  const el = document.getElementById('timerDisplay');
+  if (el) el.textContent = String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+function startTimer() {
+  if (timerRunning) return;
+  timerRunning = true;
+  timerInt = setInterval(() => {
+    timerSec--;
+    if (timerSec <= 0) { clearInterval(timerInt); timerRunning = false; toast('Session complete! 🎉'); logSession(); resetTimer(); }
+    updateTimerDisplay();
+  }, 1000);
+}
+function pauseTimer(){ clearInterval(timerInt); timerRunning = false; }
+function resetTimer(){ clearInterval(timerInt); timerRunning = false; const d = document.getElementById('timerDur'); timerSec = parseInt((d&&d.value) || 25)*60; updateTimerDisplay(); }
+async function logSession() {
+  const topic = (document.getElementById('timerTopic')||{}).value || 'Free study';
+  const dur = parseInt((document.getElementById('timerDur')||{}).value || 25);
+  try {
+    await api('/api/study_sessions/log', { method:'POST', body: JSON.stringify({topic, duration_minutes: dur, session_type:'pomodoro'}) });
+    toast('Session logged ✓');
+  } catch(e) { toast(e.message); }
+}
+
+async function renderRecall() {
+  const el = document.getElementById('tab-recall');
+  let due;
+  try { due = await api('/api/recall/due'); } catch(e){ el.innerHTML='<div class="card">'+e.message+'</div>'; return; }
+  const cards = due.cards || due || [];
+  el.innerHTML = `
+    <div class="card">
+      <h2>Due for review</h2>
+      <div class="sub">${cards.length} cards · FSRS scheduled</div>
+      ${cards.length ? cards.map(c => `
+        <div class="block">
+          <div style="flex:1">
+            <div class="title">${escapeHtml(c.topic||'')}</div>
+            <div class="why">${escapeHtml(c.subtopic||'')}</div>
+          </div>
+          <div class="right">
+            <div class="btn-row">
+              ${[1,2,3,4,5].map(g => `<button class="btn sm ${g<=2?'danger':g==3?'outline':''}" onclick="reviewCard(${c.id},${g})">${g}</button>`).join('')}
+            </div>
+          </div>
+        </div>
+      `).join('') : '<p class="sub">All caught up 🎉</p>'}
+    </div>
+  `;
+}
+async function reviewCard(id, quality) {
+  try { await api('/api/recall/'+id+'/review', { method:'POST', body: JSON.stringify({quality}) }); toast('Reviewed'); renderRecall(); }
+  catch(e){ toast(e.message); }
+}
+
+function renderCoach() {
+  const el = document.getElementById('tab-coach');
+  el.innerHTML = `
+    <div class="card big">
+      <h2>Ask Cortex</h2>
+      <div class="sub">Sonnet-backed conversational tutor — grounded in your data</div>
+      <div class="chat" id="chat"></div>
+      <div class="chat-input">
+        <input id="chatInput" placeholder="Ask anything — 'why am I weak on adrenal?'" onkeydown="if(event.key==='Enter')sendChat()"/>
+        <button class="btn" onclick="sendChat()">Send</button>
+      </div>
+    </div>
+  `;
+  paintChat();
+}
+function paintChat() {
+  const el = document.getElementById('chat');
+  if (!el) return;
+  el.innerHTML = state.chatHistory.map(m => `<div class="msg ${m.role}">${escapeHtml(m.content)}</div>`).join('');
+  el.scrollTop = el.scrollHeight;
+}
+async function sendChat() {
+  const inp = document.getElementById('chatInput');
+  const msg = inp.value.trim(); if (!msg) return;
+  inp.value = '';
+  state.chatHistory.push({role:'user', content: msg});
+  paintChat();
+  state.chatHistory.push({role:'ai', content: '…'});
+  paintChat();
+  try {
+    const r = await api('/api/ai/coach/chat', { method:'POST', body: JSON.stringify({message: msg, history: state.chatHistory.slice(0,-2)})});
+    state.chatHistory.pop();
+    state.chatHistory.push({role:'ai', content: r.text || '(no response)'});
+  } catch(e) {
+    state.chatHistory.pop();
+    state.chatHistory.push({role:'ai', content: 'Error: ' + e.message});
+  }
+  paintChat();
+}
+
+async function explainWeakness(topicId) {
+  toast('Asking Cortex…');
+  try {
+    const r = await api('/api/ai/coach/explain-weakness', { method:'POST', body: JSON.stringify({topic_id: topicId}) });
+    document.querySelector('[data-tab="coach"]').click();
+    state.chatHistory.push({role:'ai', content: r.markdown || 'No analysis available'});
+    paintChat();
+  } catch(e) { toast(e.message); }
+}
+
+async function renderLeaderboard() {
+  const el = document.getElementById('tab-leaderboard');
+  el.innerHTML = '<div class="card"><p class="sub">Loading cohort data…</p></div>';
+  let bench, strength;
+  try {
+    [bench, strength] = await Promise.all([
+      api('/api/peer/benchmark').catch(e=>({error:e.message})),
+      api('/api/peer/topic-strength').catch(e=>({error:e.message})),
+    ]);
+  } catch(e) { el.innerHTML='<div class="card">'+e.message+'</div>'; return; }
+  if (bench && bench.error) {
+    el.innerHTML = `<div class="card"><h2>Leaderboard locked</h2><p class="sub">${escapeHtml(bench.error)}</p>
+      <button class="btn" onclick="optInLeaderboard()">Enable peer benchmarking</button></div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="card">
+      <h2>Your percentile</h2>
+      <div class="sub">vs cohort of opted-in peers</div>
+      <div class="stat" style="margin:14px 0"><div class="num">${bench.overall_percentile||0}</div><div class="lab">overall percentile</div></div>
+      ${Object.entries(bench).filter(([k,v])=>typeof v==='object'&&v).map(([k,v]) => `
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px">
+          <span style="text-transform:capitalize">${k.replace(/_/g,' ')}</span>
+          <span><b>${v.percentile||0}%ile</b> · you ${v.value} · cohort p50 ${v.cohort_p50}</span>
+        </div>
+      `).join('')}
+    </div>
+    <div class="card" style="margin-top:20px">
+      <h2>Topic strengths vs cohort</h2>
+      ${((strength&&strength.topics)||[]).slice(0,15).map(t => `
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px">
+          <span>${escapeHtml(t.topic_name||'')}</span>
+          <span class="${t.delta>=0?'pill green':'pill red'}">${t.delta>=0?'+':''}${(t.delta*100).toFixed(0)}%</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+async function optInLeaderboard() {
+  try { await api('/api/users/me', { method:'PATCH', body: JSON.stringify({leaderboard_opt_in: true}) }); toast('Enabled ✓'); renderLeaderboard(); }
+  catch(e){ toast(e.message); }
+}
+
+async function renderSyllabus() {
+  const el = document.getElementById('tab-syllabus');
+  el.innerHTML = '<div class="card"><p class="sub">Loading content tree…</p></div>';
+  try {
+    const bundle = await api('/api/lms/syllabus-bundle');
+    const cats = (bundle && (bundle.categories || (bundle.data && bundle.data.categories))) || [];
+    el.innerHTML = '<div class="card"><h2>Syllabus tree</h2>' + cats.map(cat => `
+      <details style="margin:8px 0"><summary style="cursor:pointer;font-weight:600">${escapeHtml(cat.name||'')} <span style="color:var(--muted);font-weight:400">(${(cat.subcategories||[]).length} subcategories)</span></summary>
+        <div style="padding-left:18px">
+          ${(cat.subcategories||[]).map(sub => `
+            <details><summary style="cursor:pointer;font-size:13px;margin:4px 0">${escapeHtml(sub.name||'')}</summary>
+              <ul style="margin:4px 0;padding-left:24px;font-size:12px;color:var(--muted)">
+                ${(sub.topics||[]).map(t=>`<li>${escapeHtml(t.name||'')}</li>`).join('')}
+              </ul>
+            </details>
+          `).join('')}
+        </div>
+      </details>
+    `).join('') + '</div>';
+  } catch(e) { el.innerHTML = '<div class="card"><p class="sub">'+escapeHtml(e.message)+'</p></div>'; }
+}
+
+async function downloadWeeklySnapshot() {
+  toast('Generating PDF…');
+  try {
+    const r = await fetch('/api/ai/snapshot/weekly', {headers:{authorization:token}});
+    if (!r.ok) throw new Error('Failed');
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  } catch(e) { toast(e.message); }
+}
+
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  });
+}
+
+if (token) { showApp(); refreshAll(); } else { showLogin(); }
 </script>
 </body>
 </html>
