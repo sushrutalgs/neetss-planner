@@ -234,6 +234,8 @@
 
 <script>
 // ─────────────────────────── state ───────────────────────────
+const LMS_API_BASE = 'https://api.sushrutalgs.in';
+
 const state = {
   token: localStorage.getItem('lms_jwt') || new URLSearchParams(location.search).get('token') || '',
   me: null,
@@ -243,6 +245,17 @@ const state = {
 if (new URLSearchParams(location.search).get('token')) {
   localStorage.setItem('lms_jwt', state.token);
   history.replaceState({}, '', location.pathname);
+}
+
+// Stable per-browser device fingerprint so LMS treats repeat logins as the
+// same desktop slot (otherwise the multi-device cap kicks in on every visit).
+function getDeviceId() {
+  let id = localStorage.getItem('lms_device_id');
+  if (!id) {
+    id = 'web-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now().toString(36);
+    localStorage.setItem('lms_device_id', id);
+  }
+  return id;
 }
 
 const API = {
@@ -261,7 +274,8 @@ const API = {
     }
     if (r.status === 401) {
       localStorage.removeItem('lms_jwt');
-      document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif"><h2>Sign in required</h2><p>Open this page from the Sushruta LMS to authenticate.</p></div>';
+      state.token = '';
+      showLoginForm('Your session expired. Sign in again.');
       throw new Error('unauthorized');
     }
     if (!r.ok) throw new Error('http ' + r.status);
@@ -425,11 +439,191 @@ document.getElementById('coach-btn').addEventListener('click', async () => {
   }
 });
 
+// ─────────────────────────── login ───────────────────────────
+//
+// Two-step OTP login backed by the Sushruta LMS:
+//   POST {LMS_API_BASE}/api/sendOtpViaSms   { phone }
+//   POST {LMS_API_BASE}/api/loginViaSms     { phone, userOTP, deviceType, deviceId, deviceName, deviceUniqueId }
+// The verify step returns { status: 1, data: { token, isActive, lastLoginDevices } }.
+// We stash the token in localStorage.lms_jwt and reload the SPA.
+
+function showLoginForm(notice) {
+  const deviceId = getDeviceId();
+  document.body.innerHTML = `
+    <style>
+      .login-wrap {
+        min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        font-family: -apple-system, BlinkMacSystemFont, 'Outfit', 'Segoe UI', Roboto, sans-serif;
+        background: radial-gradient(circle at 50% 0%, rgba(0,113,227,0.08), transparent 60%);
+        padding: 20px;
+      }
+      .login-card {
+        background: var(--card, #fff); color: var(--ink, #1d1d1f);
+        border: 1px solid rgba(0,0,0,0.08); border-radius: 18px; padding: 36px 32px;
+        max-width: 380px; width: 100%;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+      }
+      @media (prefers-color-scheme: dark) {
+        .login-card { background: #1c1c1e; color: #f5f5f7; border-color: rgba(255,255,255,0.08); }
+      }
+      .login-card h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+      .login-card .sub { margin: 0 0 24px; font-size: 13px; opacity: 0.6; }
+      .login-card label { display: block; font-size: 12px; font-weight: 500; opacity: 0.7; margin-bottom: 6px; }
+      .login-card input {
+        width: 100%; padding: 12px 14px; font-size: 15px; border-radius: 10px;
+        border: 1px solid rgba(0,0,0,0.14); background: rgba(0,0,0,0.02); color: inherit;
+        box-sizing: border-box; outline: none; transition: border 0.15s;
+      }
+      @media (prefers-color-scheme: dark) {
+        .login-card input { border-color: rgba(255,255,255,0.14); background: rgba(255,255,255,0.04); }
+      }
+      .login-card input:focus { border-color: #0071e3; }
+      .login-card input[type="text"][inputmode="numeric"] {
+        font-size: 22px; letter-spacing: 6px; text-align: center; font-family: ui-monospace, monospace;
+      }
+      .login-card button {
+        width: 100%; padding: 13px; font-size: 15px; font-weight: 600;
+        background: #0071e3; color: #fff; border: 0; border-radius: 10px; cursor: pointer;
+        margin-top: 16px; transition: opacity 0.15s;
+      }
+      .login-card button:hover { opacity: 0.92; }
+      .login-card button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .login-card .link {
+        display: block; text-align: center; margin-top: 14px; font-size: 13px;
+        color: #0071e3; text-decoration: none; cursor: pointer; background: none; border: 0; padding: 0;
+      }
+      .login-card .notice {
+        margin-bottom: 16px; padding: 10px 12px; border-radius: 8px;
+        background: rgba(255,149,0,0.1); color: #b3541a; font-size: 13px;
+      }
+      .login-card .error {
+        margin-top: 12px; padding: 10px 12px; border-radius: 8px;
+        background: rgba(255,59,48,0.1); color: #d70015; font-size: 13px;
+      }
+      .login-card .ok {
+        margin-top: 12px; padding: 10px 12px; border-radius: 8px;
+        background: rgba(52,199,89,0.1); color: #248a3d; font-size: 13px;
+      }
+      .login-card .masked { font-size: 13px; opacity: 0.7; margin-bottom: 16px; }
+    </style>
+    <div class="login-wrap">
+      <div class="login-card" id="login-card">
+        <h1>Cortex Surgery Planner</h1>
+        <p class="sub">Sign in with your Sushruta LMS account</p>
+        ${notice ? `<div class="notice">${escapeHtml(notice)}</div>` : ''}
+        <div id="login-step-phone">
+          <label for="login-phone">Mobile number</label>
+          <input id="login-phone" type="tel" inputmode="numeric" maxlength="10" placeholder="10-digit mobile" autocomplete="tel" />
+          <button id="login-send-btn">Send OTP</button>
+          <div id="login-phone-msg"></div>
+        </div>
+        <div id="login-step-otp" style="display:none;">
+          <div class="masked">OTP sent to <b id="login-masked-phone"></b></div>
+          <label for="login-otp">4-digit OTP</label>
+          <input id="login-otp" type="text" inputmode="numeric" maxlength="4" autocomplete="one-time-code" />
+          <button id="login-verify-btn">Verify &amp; sign in</button>
+          <button class="link" id="login-back-btn">&larr; Use a different number</button>
+          <div id="login-otp-msg"></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const $ = (id) => document.getElementById(id);
+  let phone = '';
+
+  async function sendOtp() {
+    const val = ($('login-phone').value || '').trim();
+    if (!/^\d{10}$/.test(val)) {
+      $('login-phone-msg').innerHTML = '<div class="error">Enter a valid 10-digit mobile number.</div>';
+      return;
+    }
+    phone = val;
+    $('login-send-btn').disabled = true;
+    $('login-send-btn').textContent = 'Sending…';
+    $('login-phone-msg').innerHTML = '';
+    try {
+      const r = await fetch(LMS_API_BASE + '/api/sendOtpViaSms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.success === false) {
+        throw new Error(j.message || 'Could not send OTP.');
+      }
+      // swap to OTP step
+      $('login-step-phone').style.display = 'none';
+      $('login-step-otp').style.display = 'block';
+      $('login-masked-phone').textContent = '+91 ' + phone.slice(0, 2) + '••••' + phone.slice(-2);
+      setTimeout(() => $('login-otp').focus(), 50);
+    } catch (e) {
+      $('login-phone-msg').innerHTML = '<div class="error">' + escapeHtml(e.message) + '</div>';
+    } finally {
+      $('login-send-btn').disabled = false;
+      $('login-send-btn').textContent = 'Send OTP';
+    }
+  }
+
+  async function verifyOtp() {
+    const userOTP = ($('login-otp').value || '').trim();
+    if (!/^\d{4}$/.test(userOTP)) {
+      $('login-otp-msg').innerHTML = '<div class="error">Enter the 4-digit OTP.</div>';
+      return;
+    }
+    $('login-verify-btn').disabled = true;
+    $('login-verify-btn').textContent = 'Verifying…';
+    $('login-otp-msg').innerHTML = '';
+    try {
+      const r = await fetch(LMS_API_BASE + '/api/loginViaSms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone,
+          userOTP,
+          deviceType: 'web',
+          deviceId: getDeviceId(),
+          deviceName: (navigator.userAgent || 'Browser').slice(0, 80),
+          deviceUniqueId: getDeviceId(),
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      // The LMS success() helper wraps responses as { status: 1, data: {...} }
+      const token = (j && j.data && j.data.token) || j.token;
+      if (!r.ok || !token) {
+        throw new Error((j && (j.message || (j.data && j.data.message))) || 'Invalid OTP.');
+      }
+      // Success — store and boot
+      localStorage.setItem('lms_jwt', token);
+      state.token = token;
+      $('login-otp-msg').innerHTML = '<div class="ok">Signed in. Loading your planner…</div>';
+      // Hard reload so the SPA rebuilds against the new token cleanly.
+      setTimeout(() => location.replace('/v2'), 300);
+    } catch (e) {
+      $('login-otp-msg').innerHTML = '<div class="error">' + escapeHtml(e.message) + '</div>';
+    } finally {
+      $('login-verify-btn').disabled = false;
+      $('login-verify-btn').textContent = 'Verify & sign in';
+    }
+  }
+
+  $('login-send-btn').addEventListener('click', sendOtp);
+  $('login-verify-btn').addEventListener('click', verifyOtp);
+  $('login-back-btn').addEventListener('click', () => {
+    $('login-step-otp').style.display = 'none';
+    $('login-step-phone').style.display = 'block';
+    $('login-otp-msg').innerHTML = '';
+  });
+  $('login-phone').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendOtp(); });
+  $('login-otp').addEventListener('keydown', (e) => { if (e.key === 'Enter') verifyOtp(); });
+  setTimeout(() => $('login-phone').focus(), 50);
+}
+
 // ─────────────────────────── bootstrap ───────────────────────────
 
 async function bootstrap(firstRun = true) {
   if (!state.token) {
-    document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif"><h2>Sign in required</h2><p>Open this page from the Sushruta LMS (token in URL or localStorage key <code>lms_jwt</code>).</p></div>';
+    showLoginForm();
     return;
   }
   try {
