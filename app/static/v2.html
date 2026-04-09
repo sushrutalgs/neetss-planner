@@ -724,6 +724,7 @@ async function refreshAll() {
 
   const fetchers = {
     plan: api('/api/plans/current').catch(()=>null),
+    inclusions: api('/api/plans/inclusions').catch(()=>null),
     signal: api('/api/signal').catch(()=>null),
     mastery: api('/api/ml/mastery').catch(()=>null),
     streak: api('/api/streak').catch(()=>null),
@@ -798,6 +799,8 @@ function renderDashboard() {
       ${statCard('Min/day (14d)', Math.round((state.streak && state.streak.avg_minutes_last_14d) || 0), 'rolling avg')}
     </div>
 
+    ${renderPlanInclusionsCard(state.inclusions)}
+
     <div class="card" style="margin-top:20px">
       <h2>What to do next</h2>
       <div class="sub">AI-generated, ranked by accuracy lift per minute</div>
@@ -850,6 +853,75 @@ function renderDashboard() {
 
 function statCard(label, value, sub) {
   return '<div class="card"><div class="stat"><div class="num">'+value+'</div><div class="lab">'+label+'</div>'+(sub?'<div class="delta">'+sub+'</div>':'')+'</div></div>';
+}
+
+function renderPlanInclusionsCard(inc) {
+  if (!inc || !inc.has_plan) {
+    return `
+      <div class="card" style="margin-top:20px">
+        <h2>Your plan</h2>
+        <div class="sub">No active plan yet — head to the <b>Planner</b> tab and generate one. We'll pull videos, notes, MCQs and mocks from your Sushruta library and build a day-by-day schedule.</div>
+      </div>`;
+  }
+  const t = inc.totals || {};
+  const c = inc.consumed || {};
+  const p = inc.progress || {};
+  const today = inc.today || {};
+  const bar = (pct, color) => `<span class="bar" style="flex:1"><i style="width:${pct}%;background:${color}"></i></span>`;
+  const row = (icon, label, done, total, pct, color) => `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)">
+      <div style="font-size:22px;width:32px;text-align:center">${icon}</div>
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+          <span style="font-weight:600">${label}</span>
+          <span style="color:var(--muted)">${done} / ${total}</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${bar(pct, color)}
+          <span style="font-size:12px;font-weight:600;width:38px;text-align:right">${pct}%</span>
+        </div>
+      </div>
+    </div>`;
+
+  const kindIcon = { read: '📖', watch: '🎬', practice: '🎯', mock: '📝', recall: '🧠' };
+  const todayBlocks = (today.blocks || []).slice(0, 6).map(b => `
+    <div class="block">
+      <div style="flex:1">
+        <div class="title">${(kindIcon[b.kind]||'•')} ${escapeHtml(b.title || b.kind || '')}</div>
+        <div class="why">${b.done ? '✓ completed' : 'pending'}</div>
+      </div>
+      <div class="right"><span class="kind ${b.kind||''}">${b.kind||''}</span><span class="min">${b.minutes||0} min</span></div>
+    </div>`).join('') || '<p class="sub">No blocks scheduled for today — you might be on a rest day.</p>';
+
+  return `
+    <div class="grid grid-2" style="margin-top:20px">
+      <div class="card big">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <h2>Your plan · ${escapeHtml(inc.plan_name || 'My plan')}</h2>
+            <div class="sub">${inc.days_elapsed || 0} of ${inc.days_total || 0} days · ${(t.total_hours||0)}h of study planned</div>
+          </div>
+          <div style="text-align:right">
+            <div class="num" style="font-size:34px;line-height:1">${p.overall_pct || 0}%</div>
+            <div class="lab">overall</div>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          ${row('🎬', 'Videos',   c.videos_watched || 0, t.videos || 0,   p.videos_pct || 0, '#0071e3')}
+          ${row('📖', 'Notes',    c.notes_opened   || 0, t.notes || 0,    p.notes_pct  || 0, '#34c759')}
+          ${row('🎯', 'MCQs',     c.mcqs_attempted || 0, t.mcqs_target || (t.mcq_sets||0)*10, p.mcqs_pct || 0, '#ff9500')}
+          ${row('📝', 'Mocks',    c.mocks_done     || 0, t.mocks || 0,    p.mocks_pct  || 0, '#af52de')}
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-top:12px">
+          Pulled live from your Sushruta library. Progress updates as you watch, read and practice in the LMS.
+        </p>
+      </div>
+      <div class="card big">
+        <h2>Today's targets</h2>
+        <div class="sub">${today.minutes_planned || 0} min planned · ${today.completed_blocks || 0} of ${today.total_blocks || 0} done</div>
+        <div style="margin-top:10px">${todayBlocks}</div>
+      </div>
+    </div>`;
 }
 
 function ringSVG(score, band) {

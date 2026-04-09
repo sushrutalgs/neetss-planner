@@ -410,6 +410,202 @@ def plans_current(
     }
 
 
+def _count_plan_inclusions(days: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Walk the scheduler's day/block/item tree and tally unique content
+    referenced in the plan so the dashboard can show
+    "X videos · Y notes · Z MCQs · M mocks".
+
+    A single piece of content may appear on multiple days (revision passes) —
+    we dedupe by content_id per kind so totals reflect the *library* the plan
+    will expose, not the number of impressions.
+    """
+    videos: set = set()
+    notes: set = set()
+    mcq_sets: set = set()
+    mocks: set = set()
+    total_minutes = 0
+    minutes_by_kind: Dict[str, int] = {"read": 0, "watch": 0, "practice": 0, "mock": 0, "recall": 0}
+    mcq_question_target = 0  # approx total questions planned (items * 10 fallback)
+
+    for day in days or []:
+        for block in day.get("blocks", []) or []:
+            kind = block.get("kind") or ""
+            mins = int(block.get("minutes") or 0)
+            total_minutes += mins
+            if kind in minutes_by_kind:
+                minutes_by_kind[kind] += mins
+            for item in block.get("items", []) or []:
+                ck = item.get("content_kind")
+                cid = str(item.get("content_id") or "")
+                if not cid:
+                    continue
+                if ck == "video":
+                    videos.add(cid)
+                elif ck == "notes":
+                    notes.add(cid)
+                elif ck == "mcq_set":
+                    mcq_sets.add(cid)
+                    mcq_question_target += int(item.get("question_count") or item.get("count") or 10)
+                elif ck == "mock":
+                    mocks.add(cid)
+
+    return {
+        "videos": len(videos),
+        "notes": len(notes),
+        "mcq_sets": len(mcq_sets),
+        "mcqs_target": mcq_question_target,
+        "mocks": len(mocks),
+        "total_minutes": total_minutes,
+        "total_hours": round(total_minutes / 60, 1),
+        "minutes_by_kind": minutes_by_kind,
+        "_ids": {
+            "videos": list(videos),
+            "notes": list(notes),
+            "mcq_sets": list(mcq_sets),
+            "mocks": list(mocks),
+        },
+    }
+
+
+@router.get("/plans/inclusions")
+def plans_inclusions(
+    lms_user: LmsUser = Depends(enforce_subscription),
+    db: Session = Depends(get_db),
+):
+    """
+    Dashboard "My Plan" card backing endpoint.
+
+    Returns:
+      {
+        has_plan, plan_id, plan_name, start_date, end_date, days_total, days_elapsed,
+        totals:   { videos, notes, mcq_sets, mcqs_target, mocks, total_hours, minutes_by_kind },
+        consumed: { videos_watched, notes_opened, mcqs_attempted, mcqs_correct, mocks_done, minutes_spent_14d },
+        progress: { videos_pct, notes_pct, mcqs_pct, mocks_pct, overall_pct },
+        today:    { date, minutes_planned, blocks: [{kind,title,minutes,done}], completed_blocks, total_blocks }
+      }
+
+    Completely tolerant of missing LMS data — if the LMS side 500s we still
+    return the plan-side totals so the card always renders something useful.
+    """
+    user = _get_or_create_local_user(db, lms_user)
+    plan = (
+        db.query(Plan)
+        .filter(Plan.user_id == user.id, Plan.is_archived == False)  # noqa: E712
+        .order_by(Plan.created_at.desc())
+        .first()
+    )
+    if not plan:
+        plan = db.query(Plan).filter(Plan.user_id == user.id).order_by(Plan.created_at.desc()).first()
+    if not plan or not (plan.data_json or {}).get("days"):
+        return {"has_plan": False}
+
+    days = (plan.data_json or {}).get("days") or []
+    totals = _count_plan_inclusions(days)
+
+    # ── Consumed side: ask the LMS for the user's real progress ──
+    consumed = {
+        "videos_watched": 0,
+        "notes_opened": 0,
+        "mcqs_attempted": 0,
+        "mcqs_correct": 0,
+        "mocks_done": 0,
+        "minutes_spent_14d": 0,
+    }
+    try:
+        mcq_hist = get_user_mcq_history(lms_user.token) or {}
+        totals_hist = (mcq_hist.get("totals") or {})
+        consumed["mcqs_attempted"] = int(totals_hist.get("attempted") or 0)
+        consumed["mcqs_correct"] = int(totals_hist.get("correct") or 0)
+    except Exception as e:
+        logger.warning("[plans/inclusions] mcq history failed: %s", e)
+
+    try:
+        prog = get_user_content_progress(lms_user.token) or {}
+        prog_tot = prog.get("totals") or {}
+        consumed["videos_watched"] = int(
+            prog_tot.get("videos_watched") or prog_tot.get("videos") or 0
+        )
+        consumed["notes_opened"] = int(
+            prog_tot.get("notes_opened") or prog_tot.get("notes") or 0
+        )
+    except Exception as e:
+        logger.warning("[plans/inclusions] content progress failed: %s", e)
+
+    try:
+        mock_hist = get_user_mock_history(lms_user.token, limit=100) or {}
+        consumed["mocks_done"] = int((mock_hist.get("totals") or {}).get("attempts") or len(mock_hist.get("mocks") or []))
+    except Exception as e:
+        logger.warning("[plans/inclusions] mock history failed: %s", e)
+
+    try:
+        daily = get_user_daily_activity(lms_user.token, days=14) or {}
+        consumed["minutes_spent_14d"] = int(daily.get("total_minutes_window") or 0)
+    except Exception as e:
+        logger.warning("[plans/inclusions] daily activity failed: %s", e)
+
+    def _pct(done: int, target: int) -> int:
+        if target <= 0:
+            return 0
+        return max(0, min(100, int(round(done / target * 100))))
+
+    progress = {
+        "videos_pct": _pct(consumed["videos_watched"], totals["videos"]),
+        "notes_pct": _pct(consumed["notes_opened"], totals["notes"]),
+        "mcqs_pct": _pct(consumed["mcqs_attempted"], totals["mcqs_target"] or totals["mcq_sets"] * 10),
+        "mocks_pct": _pct(consumed["mocks_done"], totals["mocks"]),
+    }
+    parts = [p for p in progress.values()]
+    progress["overall_pct"] = int(round(sum(parts) / max(1, len(parts))))
+
+    # ── Today's card ──
+    today_iso = date.today().isoformat()
+    today_day = next((d for d in days if d.get("day") == today_iso), None)
+    today_block_info: Dict[str, Any] = {
+        "date": today_iso,
+        "minutes_planned": 0,
+        "blocks": [],
+        "completed_blocks": 0,
+        "total_blocks": 0,
+    }
+    if today_day:
+        blocks = today_day.get("blocks", []) or []
+        today_block_info["total_blocks"] = len(blocks)
+        today_block_info["minutes_planned"] = sum(int(b.get("minutes") or 0) for b in blocks)
+        today_block_info["completed_blocks"] = sum(1 for b in blocks if b.get("done") or b.get("completed"))
+        today_block_info["blocks"] = [
+            {
+                "kind": b.get("kind"),
+                "title": (b.get("topic_ref") or {}).get("name") or (b.get("items") or [{}])[0].get("title") or b.get("kind"),
+                "minutes": int(b.get("minutes") or 0),
+                "done": bool(b.get("done") or b.get("completed")),
+            }
+            for b in blocks
+        ]
+
+    # Elapsed days
+    start_d = plan.start_date or date.fromisoformat(days[0].get("day")) if days else None
+    end_d = plan.end_date or (date.fromisoformat(days[-1].get("day")) if days else None)
+    try:
+        days_elapsed = max(0, (date.today() - start_d).days) if start_d else 0
+    except Exception:
+        days_elapsed = 0
+
+    return {
+        "has_plan": True,
+        "plan_id": plan.id,
+        "plan_name": plan.name,
+        "start_date": start_d.isoformat() if start_d else None,
+        "end_date": end_d.isoformat() if end_d else None,
+        "days_total": len(days),
+        "days_elapsed": days_elapsed,
+        "totals": {k: v for k, v in totals.items() if k != "_ids"},
+        "consumed": consumed,
+        "progress": progress,
+        "today": today_block_info,
+    }
+
+
 @router.post("/plans/generate")
 def plans_generate(
     payload: GeneratePlanRequest,
