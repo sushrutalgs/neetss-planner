@@ -67,6 +67,13 @@ try:
         webhook, lms_content, planner_v2,
     )
 
+    # Phase 1 — federated content-aware planner consumed by Flutter + new SPA.
+    # MUST be registered BEFORE users.router so the LMS-aware /api/me wins
+    # the first-match lookup (users.py also defines a legacy /api/me that
+    # validates planner-local JWTs and breaks LMS-federated auth).
+    app.include_router(planner_v2.router)
+    app.include_router(ai_coach.router, prefix="/api", tags=["AI Coach"])
+
     app.include_router(dashboard.router, prefix="/api", tags=["Dashboard"])
     app.include_router(users.router, prefix="/api", tags=["Users"])
     app.include_router(plans.router, prefix="/api", tags=["Plans"])
@@ -77,12 +84,9 @@ try:
     app.include_router(recall.router, prefix="/api", tags=["Recall"])
     app.include_router(analytics.router, prefix="/api", tags=["Analytics"])
     app.include_router(leaderboard.router, prefix="/api", tags=["Leaderboard"])
-    app.include_router(ai_coach.router, prefix="/api", tags=["AI Coach"])
     app.include_router(webhook.router)
     app.include_router(lms_content.router)
     app.include_router(admin.router)
-    # Phase 1 — federated content-aware planner consumed by Flutter + new SPA
-    app.include_router(planner_v2.router)
 
     print("✅ All routers loaded successfully.")
 except Exception as e:
