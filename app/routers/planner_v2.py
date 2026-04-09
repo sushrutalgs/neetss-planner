@@ -808,7 +808,7 @@ def _plans_generate_impl(
     try:
         rationale = generate_plan_rationale(
             days=days,
-            exam_date=payload.exam_date,
+            exam_date=payload.exam_date or payload.resolved_end(),
             hours_per_day=payload.hours_per_day,
             mastery=mastery,
             bundle=bundle,
