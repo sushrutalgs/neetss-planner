@@ -1,6 +1,7 @@
 from __future__ import annotations
 import os
 import json
+from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -9,6 +10,8 @@ from datetime import date, timedelta
 from app.database import get_db
 from app import models
 from app.auth import get_current_user
+from app.auth_lms import LmsUser, enforce_subscription
+from app.ai.weekly_coach import generate_weekly_review
 from app.priorities import SYLLABUS_TREE
 
 router = APIRouter(tags=["AI Coach"])
@@ -190,6 +193,108 @@ def weekly_review(db: Session = Depends(get_db), current=Depends(get_current_use
             "days_remaining": ctx["days_remaining"],
         },
         "weakness_boost": weakness_boost,
+    }
+
+
+# ─────────────────────── v2 (Claude-powered, LMS auth) ───────────────────────
+#
+# The v2 endpoints use the federated LMS JWT and route every coach response
+# through Claude Sonnet. The legacy v1 endpoints above stay in place for the
+# old Flutter build and the existing index.html — we migrate the SPA first,
+# then retire v1 once no client is calling it.
+
+
+def _build_lms_coach_context(db: Session, lms_user: LmsUser) -> Dict[str, Any]:
+    """Same shape as _build_coach_context but keyed off the LMS user id."""
+    user = (
+        db.query(models.User)
+        .filter(models.User.lms_user_id == lms_user.lms_user_id)
+        .one_or_none()
+    )
+    if not user:
+        return {}
+
+    base = _build_coach_context(db, user.id)
+
+    # Build weak / strong / untouched the same way the v1 endpoint does, so
+    # the Claude prompt sees identical semantics regardless of entry point.
+    topic_acc_map = {r["topic"]: r["accuracy"] for r in base.get("all_time_accuracy", [])}
+    weak = [t for t, acc in topic_acc_map.items() if acc < 60]
+    strong = [t for t, acc in topic_acc_map.items() if acc >= 75]
+    untouched = [t for t in SYLLABUS_TREE if t not in topic_acc_map]
+    weak.sort(key=lambda t: topic_acc_map.get(t, 0))
+    strong.sort(key=lambda t: -topic_acc_map.get(t, 0))
+
+    # Streak + exam date already in base. Enrich.
+    if base.get("exam_date"):
+        try:
+            base["days_remaining"] = max(0, (date.fromisoformat(base["exam_date"]) - date.today()).days)
+        except (ValueError, TypeError):
+            pass
+
+    latest_plan = (
+        db.query(models.Plan)
+        .filter(models.Plan.user_id == user.id)
+        .order_by(models.Plan.created_at.desc())
+        .first()
+    )
+    current_phase = None
+    if latest_plan and latest_plan.data_json:
+        today_iso = date.today().isoformat()
+        for d in latest_plan.data_json.get("days", []):
+            if d.get("day") == today_iso:
+                current_phase = d.get("phase")
+                break
+
+    base["user_name"] = user.name or "Student"
+    base["weak_topics"] = weak[:8]
+    base["strong_topics"] = strong[:5]
+    base["untouched_topics"] = untouched[:5]
+    base["current_phase"] = current_phase
+    return base
+
+
+@router.get("/ai-coach/v2/weekly-review")
+def weekly_review_v2(
+    lms_user: LmsUser = Depends(enforce_subscription),
+    db: Session = Depends(get_db),
+):
+    """
+    Claude Sonnet weekly review. Falls back to the rule-based v1 shape if
+    Claude is unreachable so the client always gets a usable response.
+    """
+    ctx = _build_lms_coach_context(db, lms_user)
+    if not ctx:
+        raise HTTPException(404, "Planner user not found")
+
+    review = generate_weekly_review(ctx)
+    if review:
+        return {
+            "source": "claude",
+            "model": review.get("_tokens", {}).get("model"),
+            "headline": review.get("headline"),
+            "what_worked": review.get("what_worked", []),
+            "what_to_fix": review.get("what_to_fix", []),
+            "next_week_targets": review.get("next_week_targets", {}),
+            "rendered_md": review.get("rendered_md", ""),
+            "context_stats": ctx.get("week_stats") if isinstance(ctx.get("week_stats"), dict) else None,
+        }
+
+    # Fallback: call the v1 handler directly by re-running its pure logic
+    # against the same user row. This keeps the contract stable when Claude
+    # is down.
+    return {
+        "source": "fallback",
+        "headline": "Weekly review (offline fallback)",
+        "what_worked": [],
+        "what_to_fix": [],
+        "next_week_targets": {},
+        "rendered_md": (
+            "Claude is temporarily unavailable — showing rule-based summary.\n\n"
+            f"Recent study days: {len(ctx.get('recent_study_days', []))}/7\n"
+            f"Streak: {ctx.get('streak', 0)} days\n"
+            f"Weak topics: {', '.join(ctx.get('weak_topics', [])[:5]) or 'none recorded'}\n"
+        ),
     }
 
 

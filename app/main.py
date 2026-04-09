@@ -64,6 +64,7 @@ try:
         users, plans, progress, admin,
         mcq_scores, study_sessions, notes, recall,
         analytics, leaderboard, ai_coach, dashboard,
+        webhook, lms_content, planner_v2,
     )
 
     app.include_router(dashboard.router, prefix="/api", tags=["Dashboard"])
@@ -77,7 +78,11 @@ try:
     app.include_router(analytics.router, prefix="/api", tags=["Analytics"])
     app.include_router(leaderboard.router, prefix="/api", tags=["Leaderboard"])
     app.include_router(ai_coach.router, prefix="/api", tags=["AI Coach"])
+    app.include_router(webhook.router)
+    app.include_router(lms_content.router)
     app.include_router(admin.router)
+    # Phase 1 — federated content-aware planner consumed by Flutter + new SPA
+    app.include_router(planner_v2.router)
 
     print("✅ All routers loaded successfully.")
 except Exception as e:
@@ -98,6 +103,15 @@ def serve_admin_dashboard():
     if os.path.exists(admin_path):
         return FileResponse(admin_path)
     return {"message": "Admin dashboard not found."}
+
+
+@app.get("/v2")
+def serve_v2_spa():
+    """New AI-driven planner SPA. Consumes planner_v2 routes + LMS federation."""
+    v2_path = os.path.join(static_dir, "v2.html")
+    if os.path.exists(v2_path):
+        return FileResponse(v2_path)
+    return {"message": "v2 SPA not found."}
 
 
 @app.get("/health")

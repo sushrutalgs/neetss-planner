@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cortex Surgery Planner — v2</title>
+<link rel="icon" href="/static/favicon.ico">
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --panel: #ffffff;
+    --ink: #111;
+    --ink-2: #666;
+    --ink-3: #8e8e93;
+    --accent: #0071e3;
+    --accent-ink: #ffffff;
+    --border: #e5e5ea;
+    --ok: #30d158;
+    --warn: #ff9f0a;
+    --err: #ff3b30;
+    --chip-bg: #f0f0f2;
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000;
+      --panel: #1c1c1e;
+      --ink: #f2f2f7;
+      --ink-2: #aeaeb2;
+      --ink-3: #8e8e93;
+      --border: #2c2c2e;
+      --chip-bg: #2c2c2e;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.5);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  header.topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 22px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  header.topbar img { width: 28px; height: 28px; }
+  header.topbar h1 { font-size: 15px; margin: 0; font-weight: 700; }
+  header.topbar .sub { font-size: 11px; color: var(--ink-3); }
+  header.topbar .spacer { flex: 1; }
+  header.topbar .chip {
+    font-size: 11px; padding: 4px 10px; border-radius: 999px;
+    background: var(--chip-bg); color: var(--ink-2);
+  }
+  header.topbar .chip.ok  { background: rgba(48,209,88,.15); color: var(--ok); }
+  header.topbar .chip.warn{ background: rgba(255,159,10,.15); color: var(--warn); }
+  header.topbar .chip.err { background: rgba(255,59,48,.15); color: var(--err); }
+
+  main { max-width: 1080px; margin: 0 auto; padding: 22px; display: grid; gap: 22px; }
+  .row { display: grid; gap: 22px; }
+  @media (min-width: 900px) { .row.split { grid-template-columns: 2fr 1fr; } }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); margin: 0 0 14px; }
+  .card h3 { font-size: 17px; margin: 0 0 6px; font-weight: 700; }
+
+  .block {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 14px; border-radius: 10px;
+    border: 1px solid var(--border);
+    margin-bottom: 10px; background: var(--bg);
+  }
+  .block .kind {
+    font-size: 10px; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 999px;
+    background: var(--accent); color: var(--accent-ink);
+    white-space: nowrap;
+  }
+  .block .kind.read    { background: #0071e3; }
+  .block .kind.watch   { background: #bf5af2; }
+  .block .kind.practice{ background: #ff9f0a; }
+  .block .kind.mock    { background: #ff3b30; }
+  .block .kind.recall  { background: #30d158; }
+  .block .body { flex: 1; }
+  .block .title { font-weight: 600; font-size: 14px; }
+  .block .meta { font-size: 11px; color: var(--ink-3); margin-top: 4px; }
+  .block .items { margin-top: 8px; font-size: 12px; color: var(--ink-2); }
+  .block.completed { opacity: .55; text-decoration: line-through; }
+  .block .actions { display: flex; gap: 6px; }
+  button {
+    font-family: inherit; font-size: 12px; padding: 6px 12px;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--ink); cursor: pointer;
+  }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+
+  .week-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .week-day {
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px; min-height: 80px; cursor: pointer; background: var(--bg);
+  }
+  .week-day.today { border-color: var(--accent); border-width: 2px; }
+  .week-day .d { font-size: 11px; color: var(--ink-3); }
+  .week-day .n { font-size: 18px; font-weight: 700; }
+  .week-day .p { font-size: 10px; color: var(--ink-3); }
+  .week-day .c { font-size: 10px; margin-top: 4px; }
+
+  .gate {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.55);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 99;
+  }
+  .gate .card { max-width: 460px; }
+
+  .md { font-size: 14px; line-height: 1.55; color: var(--ink-2); }
+  .md h1, .md h2, .md h3 { color: var(--ink); }
+  .md strong { color: var(--ink); }
+
+  form.generate { display: grid; gap: 12px; }
+  form.generate label { font-size: 12px; color: var(--ink-3); }
+  form.generate input, form.generate select {
+    padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--ink); font-size: 14px;
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--chip-bg) 0%, var(--border) 50%, var(--chip-bg) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+    border-radius: 6px; height: 14px; margin: 6px 0;
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+
+  .hidden { display: none !important; }
+  .empty { color: var(--ink-3); font-size: 13px; padding: 12px 0; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <img src="/static/logo.png" alt="Cortex">
+  <div>
+    <h1>Cortex Surgery Planner</h1>
+    <div class="sub" id="tb-sub">loading…</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="chip" id="tb-phase">—</div>
+  <div class="chip" id="tb-sub-status">—</div>
+  <button id="tb-logout" class="hidden">Sign out</button>
+</header>
+
+<!-- ─── Subscription gate (shown when auth_lms returns 402) ─── -->
+<div class="gate hidden" id="gate">
+  <div class="card">
+    <h3>Your subscription has expired</h3>
+    <p class="md">The planner is locked until you renew. You can still download your last plan PDF.</p>
+    <p class="md" id="gate-days"></p>
+    <button class="primary" onclick="window.open('https://sushrutalgs.in/subscription','_blank')">Renew now</button>
+  </div>
+</div>
+
+<main id="app">
+
+  <!-- ─── No-plan placeholder / Plan generator ─── -->
+  <section class="card hidden" id="generator">
+    <h2>Create your plan</h2>
+    <p class="md">Takes ~90 seconds. We'll build a day-by-day schedule from your LMS content, your mastery data, and your exam date.</p>
+    <form class="generate" id="gen-form">
+      <label>Plan name</label>
+      <input type="text" name="name" value="My NEET SS plan" required>
+      <label>Exam date</label>
+      <input type="date" name="exam_date" required>
+      <label>Hours per day</label>
+      <input type="number" name="hours_per_day" value="5" min="1" max="12" step="0.5" required>
+      <label>Rest days / week</label>
+      <select name="rest_days_per_week">
+        <option value="0">0 — all-in</option>
+        <option value="1" selected>1 — Sunday off</option>
+        <option value="2">2 — Sat+Sun off</option>
+      </select>
+      <button type="submit" class="primary">Generate plan</button>
+    </form>
+  </section>
+
+  <!-- ─── Main two-column layout ─── -->
+  <div class="row split">
+
+    <!-- LEFT: Today -->
+    <section class="card" id="today-card">
+      <h2>Today</h2>
+      <h3 id="today-date">—</h3>
+      <div class="sub" id="today-budget" style="font-size:12px;color:var(--ink-3);margin-bottom:14px;">—</div>
+      <div id="blocks">
+        <div class="skeleton"></div>
+        <div class="skeleton" style="width:80%"></div>
+        <div class="skeleton" style="width:60%"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Rationale + Week -->
+    <div style="display:grid;gap:22px;">
+      <section class="card">
+        <h2>AI rationale</h2>
+        <div id="rationale" class="md"><div class="skeleton"></div><div class="skeleton" style="width:90%"></div><div class="skeleton" style="width:70%"></div></div>
+      </section>
+      <section class="card">
+        <h2>14-day strip</h2>
+        <div class="week-strip" id="week-strip"></div>
+      </section>
+      <section class="card">
+        <h2>Weekly coach</h2>
+        <button id="coach-btn">Refresh weekly review</button>
+        <div id="coach" class="md" style="margin-top:10px;"><div class="empty">Click refresh to generate.</div></div>
+      </section>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ─────────────────────────── state ───────────────────────────
+const state = {
+  token: localStorage.getItem('lms_jwt') || new URLSearchParams(location.search).get('token') || '',
+  me: null,
+  plan: null,     // current plan envelope
+  days: [],       // cached day list for week strip
+};
+if (new URLSearchParams(location.search).get('token')) {
+  localStorage.setItem('lms_jwt', state.token);
+  history.replaceState({}, '', location.pathname);
+}
+
+const API = {
+  async req(path, opts={}) {
+    const r = await fetch('/api' + path, {
+      ...opts,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + state.token,
+        ...(opts.headers || {}),
+      },
+    });
+    if (r.status === 402) {
+      showGate(await r.json().catch(()=>({})));
+      throw new Error('subscription_required');
+    }
+    if (r.status === 401) {
+      localStorage.removeItem('lms_jwt');
+      document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif"><h2>Sign in required</h2><p>Open this page from the Sushruta LMS to authenticate.</p></div>';
+      throw new Error('unauthorized');
+    }
+    if (!r.ok) throw new Error('http ' + r.status);
+    return r.json();
+  },
+  me:       () => API.req('/me'),
+  today:    () => API.req('/me/today'),
+  current:  () => API.req('/plans/current'),
+  generate: (body) => API.req('/plans/generate', { method: 'POST', body: JSON.stringify(body) }),
+  week:     (planId, fromIso) => API.req(`/plans/${planId}/week?from=${fromIso}`),
+  complete: (bid) => API.req(`/blocks/${bid}/complete`, { method: 'POST' }),
+  skip:     (bid) => API.req(`/blocks/${bid}/skip`,     { method: 'POST' }),
+  snooze:   (bid, until) => API.req(`/blocks/${bid}/snooze`, { method: 'POST', body: JSON.stringify({ until }) }),
+  coach:    () => API.req('/ai-coach/v2/weekly-review'),
+};
+
+// ─────────────────────────── rendering ───────────────────────────
+
+function showGate(detail={}) {
+  document.getElementById('gate').classList.remove('hidden');
+  const d = detail.detail || detail;
+  if (d && d.expired_days_ago != null) {
+    document.getElementById('gate-days').textContent = `Expired ${d.expired_days_ago} days ago.`;
+  }
+}
+
+function renderMe(me) {
+  state.me = me;
+  document.getElementById('tb-sub').textContent = me.name || me.email || 'Student';
+  const chip = document.getElementById('tb-sub-status');
+  chip.textContent = me.subscription_status || 'none';
+  chip.className = 'chip ' + (
+    me.subscription_status === 'active' ? 'ok' :
+    me.subscription_status === 'grace'  ? 'warn' : 'err'
+  );
+}
+
+function renderBlock(b) {
+  const el = document.createElement('div');
+  el.className = 'block' + (b.state === 'completed' ? ' completed' : '');
+  const items = (b.items || []).map(i =>
+    `<div>• ${escapeHtml(i.title || i.content_kind || '')}${i.est_min ? ` <span style="color:var(--ink-3)">(${i.est_min} min)</span>` : ''}</div>`
+  ).join('');
+  el.innerHTML = `
+    <div class="kind ${b.kind}">${b.kind}</div>
+    <div class="body">
+      <div class="title">${escapeHtml(b.topic_ref?.name || b.kind)}</div>
+      <div class="meta">${b.rationale ? escapeHtml(b.rationale) : ''}</div>
+      <div class="items">${items}</div>
+    </div>
+    <div class="actions">
+      <button data-act="complete" data-id="${b.block_id}">Done</button>
+      <button data-act="skip"     data-id="${b.block_id}">Skip</button>
+    </div>
+  `;
+  return el;
+}
+
+function renderToday(today) {
+  const bEl = document.getElementById('blocks');
+  bEl.innerHTML = '';
+  if (!today || !today.has_plan) {
+    document.getElementById('generator').classList.remove('hidden');
+    document.getElementById('today-date').textContent = 'No plan yet';
+    document.getElementById('today-budget').textContent = today?.message || '';
+    return;
+  }
+  const day = today.day;
+  if (!day) {
+    document.getElementById('today-date').textContent = 'No day card for today';
+    document.getElementById('today-budget').textContent = today.message || '';
+    return;
+  }
+  document.getElementById('today-date').textContent = fmtDate(day.day) + ' · ' + (day.phase || '—');
+  document.getElementById('today-budget').textContent =
+    `${day.time_budget_min || 0} min budget · ${(day.blocks || []).length} blocks`;
+  document.getElementById('tb-phase').textContent = day.phase || '—';
+
+  const blocks = day.blocks || [];
+  if (!blocks.length) {
+    bEl.innerHTML = '<div class="empty">Nothing scheduled. Rest day.</div>';
+    return;
+  }
+  blocks.forEach(b => bEl.appendChild(renderBlock(b)));
+  bEl.querySelectorAll('button[data-act]').forEach(btn => {
+    btn.addEventListener('click', async (ev) => {
+      const act = ev.target.getAttribute('data-act');
+      const id = ev.target.getAttribute('data-id');
+      btn.disabled = true;
+      try {
+        if (act === 'complete') await API.complete(id);
+        if (act === 'skip')     await API.skip(id);
+        await bootstrap(false);
+      } finally { btn.disabled = false; }
+    });
+  });
+}
+
+function renderRationale(md) {
+  const el = document.getElementById('rationale');
+  if (!md) {
+    el.innerHTML = '<div class="empty">No AI rationale yet. Generate a plan to see one.</div>';
+    return;
+  }
+  el.innerHTML = mdToHtml(md);
+}
+
+function renderWeek(days) {
+  const el = document.getElementById('week-strip');
+  el.innerHTML = '';
+  const todayIso = new Date().toISOString().slice(0, 10);
+  days.slice(0, 14).forEach(d => {
+    const dt = new Date(d.day);
+    const cell = document.createElement('div');
+    cell.className = 'week-day' + (d.day === todayIso ? ' today' : '');
+    cell.innerHTML = `
+      <div class="d">${dt.toLocaleDateString(undefined,{weekday:'short'})}</div>
+      <div class="n">${dt.getDate()}</div>
+      <div class="p">${d.phase || ''}</div>
+      <div class="c">${(d.blocks || []).length} blk</div>
+    `;
+    el.appendChild(cell);
+  });
+}
+
+// ─────────────────────────── actions ───────────────────────────
+
+document.getElementById('gen-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const body = {
+    name: fd.get('name'),
+    exam_date: fd.get('exam_date'),
+    hours_per_day: parseFloat(fd.get('hours_per_day')),
+    rest_days_per_week: parseInt(fd.get('rest_days_per_week'), 10),
+    use_lms_content: true,
+  };
+  const btn = e.target.querySelector('button');
+  btn.disabled = true; btn.textContent = 'Generating… (may take ~15s)';
+  try {
+    const res = await API.generate(body);
+    document.getElementById('generator').classList.add('hidden');
+    if (res.ai_rationale_md) renderRationale(res.ai_rationale_md);
+    await bootstrap(false);
+  } catch (e) {
+    alert('Plan generation failed: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Generate plan';
+  }
+});
+
+document.getElementById('coach-btn').addEventListener('click', async () => {
+  const el = document.getElementById('coach');
+  el.innerHTML = '<div class="skeleton"></div><div class="skeleton" style="width:80%"></div>';
+  try {
+    const r = await API.coach();
+    el.innerHTML = mdToHtml(r.rendered_md || '') +
+      (r.source === 'fallback' ? '<div class="empty" style="margin-top:8px">(offline fallback)</div>' : '');
+  } catch (e) {
+    el.innerHTML = '<div class="empty">Coach unavailable: ' + escapeHtml(e.message) + '</div>';
+  }
+});
+
+// ─────────────────────────── bootstrap ───────────────────────────
+
+async function bootstrap(firstRun = true) {
+  if (!state.token) {
+    document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif"><h2>Sign in required</h2><p>Open this page from the Sushruta LMS (token in URL or localStorage key <code>lms_jwt</code>).</p></div>';
+    return;
+  }
+  try {
+    const me = await API.me();
+    renderMe(me);
+
+    const today = await API.today();
+    renderToday(today);
+
+    const cur = await API.current();
+    if (cur.plan) {
+      state.plan = cur.plan;
+      renderRationale(cur.plan.ai_rationale_md || '');
+      const fromIso = new Date().toISOString().slice(0, 10);
+      try {
+        const wk = await API.week(cur.plan.id, fromIso);
+        renderWeek(wk.days || []);
+      } catch (e) { /* non-fatal */ }
+    } else {
+      document.getElementById('generator').classList.remove('hidden');
+    }
+  } catch (e) {
+    if (e.message !== 'subscription_required' && e.message !== 'unauthorized') {
+      console.error('bootstrap failed', e);
+    }
+  }
+}
+
+// ─────────────────────────── utils ───────────────────────────
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString(undefined, { weekday:'long', month:'short', day:'numeric' });
+}
+function escapeHtml(s) {
+  return (s || '').toString().replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+}
+function mdToHtml(md) {
+  // Minimal markdown renderer — bold, italic, headings, bullets, paragraphs.
+  let html = escapeHtml(md);
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>')
+             .replace(/^## (.+)$/gm,  '<h2>$1</h2>')
+             .replace(/^# (.+)$/gm,   '<h1>$1</h1>')
+             .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+             .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+             .replace(/^- (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, m => '<ul>' + m.replace(/\n/g,'') + '</ul>');
+  html = html.split(/\n{2,}/).map(p => p.startsWith('<') ? p : '<p>' + p.replace(/\n/g,'<br>') + '</p>').join('');
+  return html;
+}
+
+bootstrap();
+</script>
+</body>
+</html>
