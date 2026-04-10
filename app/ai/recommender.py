@@ -119,12 +119,27 @@ def suggest_next_actions(
             "content_counts": topic.get("content_counts", {}),
         })
 
-    # Build a compact JSON payload for Claude.
+    # Pick an engagement snapshot from the first row's engagement drivers —
+    # all rows in the unified vector share the same streak/activity values.
+    sample_engagement = {}
+    for r in mastery_vector.values():
+        drivers = (r.get("drivers") or {})
+        eng = drivers.get("engagement") if isinstance(drivers.get("engagement"), dict) else None
+        if eng:
+            sample_engagement = eng
+            break
+
     payload = {
         "user_name": (user_signal or {}).get("user", {}).get("name", "Doctor"),
         "preparing_for": (user_signal or {}).get("user", {}).get("preparing_for"),
-        "streak_current": (user_signal or {}).get("computed", {}).get("streak_current", 0),
-        "avg_daily_minutes_14d": (user_signal or {}).get("computed", {}).get("avg_daily_minutes_14d", 0),
+        "streak_current": (
+            sample_engagement.get("streak_current")
+            or (user_signal or {}).get("computed", {}).get("streak_current", 0)
+        ),
+        "avg_daily_minutes_14d": (
+            sample_engagement.get("activity_score_14d")
+            or (user_signal or {}).get("computed", {}).get("avg_daily_minutes_14d", 0)
+        ),
         "latest_predicted_rank": (user_signal or {}).get("computed", {}).get("latest_predicted_rank"),
         "weak_topics": [
             {

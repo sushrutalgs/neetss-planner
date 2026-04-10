@@ -277,6 +277,71 @@ def login_via_sms(
         raise LmsError(f"loginViaSms network: {e}") from e
 
 
+def fetch_all_signals(
+    token: str,
+    *,
+    mcq_since_iso: Optional[str] = None,
+    content_since_iso: Optional[str] = None,
+    mock_limit: int = 30,
+    activity_days: int = 90,
+) -> Dict[str, Any]:
+    """
+    Pull every student-activity signal the planner cares about in parallel.
+
+    Returns a dict with the raw LMS payloads so callers can pipe them
+    straight into ai.mastery.build_vector:
+
+        {
+          "bundle":          {...},                # syllabus tree
+          "signal":          {...},                # user-signal composite
+          "mcq_history":     {...},
+          "content_progress":{...},
+          "mock_history":    {...},
+          "daily_activity":  {...},
+          "errors":          {"mcq_history": "...", ...}
+        }
+
+    Network errors on any individual endpoint are captured in `errors` and
+    the corresponding slot is set to an empty dict. The caller decides
+    whether to proceed (always does — we prefer degraded plans to 500s).
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    results: Dict[str, Any] = {
+        "bundle": {},
+        "signal": {},
+        "mcq_history": {},
+        "content_progress": {},
+        "mock_history": {},
+        "daily_activity": {},
+        "errors": {},
+    }
+
+    jobs: Dict[str, Any] = {
+        "bundle": lambda: get_syllabus_bundle(token),
+        "signal": lambda: get_user_signal(token),
+        "mcq_history": lambda: get_user_mcq_history(token, since_iso=mcq_since_iso),
+        "content_progress": lambda: get_user_content_progress(token, since_iso=content_since_iso),
+        "mock_history": lambda: get_user_mock_history(token, limit=mock_limit),
+        "daily_activity": lambda: get_user_daily_activity(token, days=activity_days),
+    }
+
+    with ThreadPoolExecutor(max_workers=min(6, len(jobs))) as pool:
+        futures = {name: pool.submit(fn) for name, fn in jobs.items()}
+        for name, fut in futures.items():
+            try:
+                val = fut.result()
+                results[name] = val or {}
+            except LmsError as e:
+                results["errors"][name] = str(e)
+                logger.warning("[fetch_all_signals] %s failed: %s", name, e)
+            except Exception as e:  # pragma: no cover
+                results["errors"][name] = str(e)
+                logger.warning("[fetch_all_signals] %s crashed: %s", name, e)
+
+    return results
+
+
 def emit_planner_event(token: str, event_type: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     """Send a planner-side event back to the LMS event bus (e.g. plan_generated)."""
     try:

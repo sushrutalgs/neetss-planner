@@ -35,6 +35,7 @@ from typing import Optional
 from fastapi import Depends, Header, HTTPException, Request, status
 
 from app.lms_client import get_user_state, LmsError
+from app.token_store import set_token as _token_store_set
 
 logger = logging.getLogger("planner.auth_lms")
 
@@ -123,8 +124,17 @@ def get_lms_user(
             raise HTTPException(status_code=401, detail="Invalid token")
         _cache_put(token, state)
 
+    lms_user_id = str(state["user_id"])
+    # Cache the token so nightly/background jobs can make authenticated LMS
+    # calls for this user without needing them to be online. TTL is the
+    # module default (7 days) — jobs must be idempotent wrt stale tokens.
+    try:
+        _token_store_set(lms_user_id, token)
+    except Exception as e:  # pragma: no cover
+        logger.warning("[auth] token_store set failed: %s", e)
+
     return LmsUser(
-        lms_user_id=str(state["user_id"]),
+        lms_user_id=lms_user_id,
         token=token,
         subscription_status=state.get("subscription_status", "none"),
         days_to_expiry=state.get("days_to_expiry"),

@@ -88,16 +88,20 @@ def _safe(fn):
 def _run_nightly_replan() -> None:
     """
     Walk every (user, active plan) pair and rebuild the schedule from the
-    freshest LMS signal. The job is idempotent — safe to re-run.
+    freshest LMS signals. The job is idempotent — safe to re-run.
+
+    Token model: uses the last-seen LMS token cached by auth_lms.get_lms_user
+    via token_store. Users who haven't hit the API in TOKEN_DEFAULT_TTL_S
+    (7 days) are skipped with reason=no_token. This replaces the broken
+    `service_token_for()` synthetic token scheme.
     """
     from app.database import SessionLocal
     from app.models import Plan, User
-    from app.lms_client import (
-        get_syllabus_bundle,
-        get_user_signal,
-        LmsError,
-    )
+    from app.lms_client import fetch_all_signals
+    from app.token_store import get_token
     from app.content_scheduler import SchedulerConfig, build_schedule_from_signal
+    from app.ai.mastery import build_vector as build_mastery_vector
+    from app.ai.plan_shaper import shape_plan
     from app.routers.planner_v2 import _persist_mastery_vector, _user_multipliers, _load_due_recall
     from datetime import date as _date, datetime as _dt
     from sqlalchemy.orm.attributes import flag_modified
@@ -110,28 +114,34 @@ def _run_nightly_replan() -> None:
             .filter(Plan.end_date >= _date.today())
             .all()
         )
+        skipped_no_token = 0
+        rebuilt = 0
         logger.info("[nightly_replan] %d active plans to refresh", len(active))
         for plan in active:
             user = db.query(User).filter(User.id == plan.user_id).first()
             if not user or not user.lms_user_id:
                 continue
-            # Service-token mode: the LMS exposes a planner-service token endpoint
-            # the planner caches per user. Fall back to skipping if absent.
-            from app.lms_client import service_token_for
-            try:
-                token = service_token_for(user.lms_user_id)
-            except Exception as e:
-                logger.warning("[nightly_replan] no token for user %s: %s", user.id, e)
+            token = get_token(user.lms_user_id)
+            if not token:
+                skipped_no_token += 1
+                logger.info(
+                    "[nightly_replan] skip user=%s plan=%s reason=no_token",
+                    user.id, plan.id,
+                )
                 continue
 
             try:
-                bundle = get_syllabus_bundle(token) or {}
-            except LmsError:
-                bundle = {}
-            try:
-                user_signal = get_user_signal(token) or {}
-            except LmsError:
-                user_signal = {}
+                signals = fetch_all_signals(token) or {}
+            except Exception as e:
+                logger.warning("[nightly_replan] fetch signals failed user=%s: %s", user.id, e)
+                continue
+
+            bundle = signals.get("bundle") or {}
+            user_signal = signals.get("signal") or {}
+            mcq_history = signals.get("mcq_history") or {}
+            content_progress = signals.get("content_progress") or {}
+            mock_history = signals.get("mock_history") or {}
+            daily_activity = signals.get("daily_activity") or {}
 
             cfg_in = plan.config_json or {}
             cfg = SchedulerConfig(
@@ -147,33 +157,80 @@ def _run_nightly_replan() -> None:
                 revision_rounds=int(cfg_in.get("revision_rounds", 1)),
                 focus_topic_ids=cfg_in.get("focus_topic_ids", []) or [],
             )
+
+            flat_topics = []
+            for cat in (bundle.get("categories") or []):
+                for sub in (cat.get("subcategories") or []):
+                    for t in (sub.get("topics") or []):
+                        flat_topics.append({**t, "_category_name": cat.get("name")})
+
+            mastery_vector = build_mastery_vector(
+                lms_signal=user_signal,
+                mcq_history=mcq_history,
+                content_progress=content_progress,
+                mock_history=mock_history,
+                daily_activity=daily_activity,
+                fsrs_cards_by_topic=None,
+                bundle_topics=flat_topics,
+            )
+
+            plan_shape = None
+            try:
+                if cfg.use_lms_content:
+                    plan_shape = shape_plan(
+                        mastery_vector=mastery_vector,
+                        bundle=bundle,
+                        start_date=cfg.start_date,
+                        end_date=cfg.end_date,
+                        hours_per_day=cfg.hours_per_day,
+                        subscription_status=user.subscription_status or "active",
+                        daily_activity=daily_activity,
+                    )
+            except Exception as e:
+                logger.warning("[nightly_replan] shaper failed user=%s: %s", user.id, e)
+                plan_shape = None
+
             due = _load_due_recall(db, user.id)
             try:
                 days, mastery_vector = build_schedule_from_signal(
                     bundle=bundle,
                     cfg=cfg,
                     user_signal=user_signal,
+                    mcq_history=mcq_history,
+                    content_progress=content_progress,
+                    mock_history=mock_history,
+                    daily_activity=daily_activity,
                     fsrs_cards_by_topic=None,
                     due_recall_cards=due,
                     user_multipliers=_user_multipliers(user),
+                    plan_shape=plan_shape,
+                    mastery_vector_override=mastery_vector,
                 )
             except Exception as e:
-                logger.warning("[nightly_replan] schedule failed for user %s: %s", user.id, e)
+                logger.warning("[nightly_replan] schedule failed user=%s: %s", user.id, e)
                 continue
 
             try:
                 _persist_mastery_vector(db, user.id, mastery_vector)
             except Exception as e:
-                logger.warning("[nightly_replan] persist failed for user %s: %s", user.id, e)
+                logger.warning("[nightly_replan] persist failed user=%s: %s", user.id, e)
 
             data = plan.data_json or {}
             data["days"] = days
+            if plan_shape:
+                data["plan_shape"] = plan_shape
             plan.data_json = data
             flag_modified(plan, "data_json")
             plan.last_replan_at = _dt.utcnow()
             plan.last_rebuild_at = _dt.utcnow()
             plan.needs_rebuild = False
             db.commit()
+            rebuilt += 1
+
+        logger.info(
+            "[nightly_replan] done: rebuilt=%d skipped_no_token=%d",
+            rebuilt, skipped_no_token,
+        )
     finally:
         db.close()
 

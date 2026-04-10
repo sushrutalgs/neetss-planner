@@ -16,6 +16,7 @@ Block shape (matches the contract that web + Flutter both render):
       "kind":       "read" | "watch" | "practice" | "mock" | "recall",
       "topic_ref":  { "lms_topic_id": "...", "name": "..." },
       "items":      [ { content_kind, content_id, title, est_min, ... } ],
+      "minutes":    <int>,   # SUM of items' est_min — the canonical duration the UI reads
       "rationale":  "...",
       "state":      "pending" | "in_progress" | "completed" | "skipped",
       "completed_at": null
@@ -58,12 +59,22 @@ MAX_VIDEO_MIN_PER_DAY = 45
 BLOCK_KIND_ORDER = ["read", "watch", "practice", "mock"]
 
 # How aggressively each phase rotates topics
+# Upgrade: previous Foundation=1 meant a 50-topic syllabus only cycled once
+# every 50 days. Dense rotation gives users a feeling of forward motion and
+# spreads content-ids across more days so the round-robin pointer actually
+# covers the P1 tier inside the phase window.
 PHASE_TOPIC_ROTATION_RATE = {
-    "Foundation":    1,    # 1 topic per day, deeply
-    "Consolidation": 2,    # 2 topics per day, mixed
-    "Revision":      3,    # 3 topics per day, fast revisions
-    "Final":         4,    # 4 topics per day, mock-heavy
+    "Foundation":    3,    # 1 deep + 2 light touches
+    "Consolidation": 4,
+    "Revision":      5,
+    "Final":         4,    # mock-heavy — mocks counted separately
 }
+
+# Minimum attempts below which a user is treated as "cold start" — bumps
+# them into the diagnostic-week path in build_schedule().
+COLD_START_MCQ_THRESHOLD = 50
+DIAGNOSTIC_DAYS = 5
+DIAGNOSTIC_MINI_MOCK_Q = 20
 
 # Phase boundaries based on coverage_pct of P1 topics.
 PHASE_BOUNDARIES = [
@@ -79,6 +90,21 @@ PHASE_BOUNDARIES = [
 
 def _new_block_id() -> str:
     return uuid.uuid4().hex[:12]
+
+
+def _finalize_block(block: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """
+    Stamp the canonical `minutes` total on a block from its items' est_min.
+
+    This is the single source of truth the dashboard / today card / analytics
+    read from. Builders used to omit this field and callers had to re-derive
+    it from `items`, which led to silent `0 minutes` bugs in planner_v2.
+    """
+    if not block:
+        return block
+    items = block.get("items") or []
+    block["minutes"] = int(sum(int(i.get("est_min") or 0) for i in items))
+    return block
 
 
 def _phase_for_coverage(p1_coverage: float, days_left: int) -> str:
@@ -119,13 +145,20 @@ def _topic_score(
     tid = str(topic.get("_id") or topic.get("id"))
     m = mastery.get(tid) or {}
     # Defensive: the LMS signal can send nulls when a topic has never been touched.
-    # Using `or <default>` collapses both "missing key" and "present but None".
     mastery_score = float(m.get("mastery") or 0.0)
-    days_idle = float(m.get("last_studied_days_ago") or 999)
+    days_idle_raw = m.get("last_studied_days_ago")
 
     priority = _priority_weight(topic.get("priority_label"))
     weakness_bump = (1.0 - mastery_score) * 2.0
-    idle_bump = min(days_idle / 14.0, 1.5)  # cap so a topic untouched for 60d isn't infinitely scored
+    # Cold-start fix: a topic the user has NEVER touched is not "999 days stale"
+    # (which would pin idle_bump to its cap for every cold topic and collapse
+    # the entire ranking back onto priority_label ties). Treat unknown idleness
+    # as a neutral 0.4 bump so priority + weakness can still differentiate.
+    if days_idle_raw is None:
+        idle_bump = 0.4
+    else:
+        days_idle = float(days_idle_raw)
+        idle_bump = min(days_idle / 14.0, 1.5)
 
     # Penalize topics with no available content at all
     counts = topic.get("content_counts", {}) or {}
@@ -177,7 +210,7 @@ def _build_read_block(
 
     if not items:
         return None
-    return {
+    return _finalize_block({
         "block_id": _new_block_id(),
         "kind": "read",
         "topic_ref": {"lms_topic_id": str(topic.get("_id")), "name": topic.get("name", "")},
@@ -185,7 +218,7 @@ def _build_read_block(
         "rationale": "Foundation reading",
         "state": "pending",
         "completed_at": None,
-    }
+    })
 
 
 def _build_watch_block(
@@ -229,7 +262,7 @@ def _build_watch_block(
 
     if not items:
         return None
-    return {
+    return _finalize_block({
         "block_id": _new_block_id(),
         "kind": "watch",
         "topic_ref": {"lms_topic_id": str(topic.get("_id")), "name": topic.get("name", "")},
@@ -237,7 +270,7 @@ def _build_watch_block(
         "rationale": None,
         "state": "pending",
         "completed_at": None,
-    }
+    })
 
 
 def _build_practice_block(
@@ -274,12 +307,17 @@ def _build_practice_block(
 
     target_accuracy = 70 if score < 0.7 else 85
 
-    return {
+    return _finalize_block({
         "block_id": _new_block_id(),
         "kind": "practice",
         "topic_ref": {"lms_topic_id": tid, "name": topic.get("name", "")},
         "items": [{
             "content_kind": "mcq_set",
+            # `content_id` is the canonical identifier dashboards count unique
+            # sets by. For a live MCQ batch there's no single doc id, so we
+            # synthesise a stable per-topic-per-day id the uniqueness counter
+            # can use while still carrying topic_id for the LMS fetcher.
+            "content_id": f"mcq:{tid}",
             "topic_id": tid,
             "count": target_count,
             "est_min": est_min,
@@ -288,7 +326,7 @@ def _build_practice_block(
         "rationale": f"accuracy {int(score*100)}%, target {target_accuracy}%",
         "state": "pending",
         "completed_at": None,
-    }
+    })
 
 
 def _build_mock_block(
@@ -297,7 +335,7 @@ def _build_mock_block(
 ) -> Dict[str, Any]:
     qcount = mock.get("question_count", 50)
     est_min = int(qcount * 1.2 * user_multiplier + 30)  # +30 review buffer
-    return {
+    return _finalize_block({
         "block_id": _new_block_id(),
         "kind": "mock",
         "topic_ref": {"lms_topic_id": None, "name": mock.get("title", "Mock Exam")},
@@ -311,7 +349,33 @@ def _build_mock_block(
         "rationale": "Timed mock — analysis runs after submit",
         "state": "pending",
         "completed_at": None,
-    }
+    })
+
+
+def _build_mini_mock_block(
+    topic: Dict[str, Any],
+    n_questions: int,
+    user_multiplier: float,
+) -> Dict[str, Any]:
+    """Diagnostic-week mini mock: scoped to a single topic for baseline measurement."""
+    tid = str(topic.get("_id") or "")
+    est_min = int(n_questions * 1.2 * user_multiplier + 5)
+    return _finalize_block({
+        "block_id": _new_block_id(),
+        "kind": "mock",
+        "topic_ref": {"lms_topic_id": tid, "name": topic.get("name", "")},
+        "items": [{
+            "content_kind": "mini_mock",
+            "content_id": f"diag:{tid}",
+            "topic_id": tid,
+            "title": f"Diagnostic mini mock — {topic.get('name', '')}",
+            "est_min": est_min,
+            "question_count": n_questions,
+        }],
+        "rationale": "Baseline diagnostic — sets up mastery scoring for this topic",
+        "state": "pending",
+        "completed_at": None,
+    })
 
 
 def _build_recall_block(due_cards: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -323,7 +387,7 @@ def _build_recall_block(due_cards: List[Dict[str, Any]]) -> Optional[Dict[str, A
         "title": c.get("topic", "Recall"),
         "est_min": 1,  # ~1 min per card
     } for c in due_cards[:30]]
-    return {
+    return _finalize_block({
         "block_id": _new_block_id(),
         "kind": "recall",
         "topic_ref": {"lms_topic_id": None, "name": "Spaced repetition"},
@@ -331,7 +395,7 @@ def _build_recall_block(due_cards: List[Dict[str, Any]]) -> Optional[Dict[str, A
         "rationale": f"{len(items)} cards due",
         "state": "pending",
         "completed_at": None,
-    }
+    })
 
 
 # ───────────────────────── public API ─────────────────────────
@@ -398,31 +462,103 @@ def build_schedule(
     mastery: Optional[Dict[str, Dict[str, Any]]] = None,
     due_recall_cards: Optional[List[Dict[str, Any]]] = None,
     user_multipliers: Optional[Dict[str, float]] = None,
+    plan_shape: Optional[Dict[str, Any]] = None,
+    total_mcq_attempts: int = 0,
 ) -> List[Dict[str, Any]]:
     """
     Return a list of day dicts from cfg.start_date through cfg.end_date.
+
+    `plan_shape` is the optional AI-shaped plan blueprint from ai/plan_shaper.py:
+        {
+          "phase_windows": [{"phase": "...", "days": int}, ...],
+          "ordered_topic_ids": ["...", ...],
+          "weak_blitzes":     [{"topic_id": "...", "days": [int, ...]}],
+          "diagnostic_week":  [{"day_offset": int, "topic_ids": [...], "n": int}]
+        }
+    When absent, the scheduler falls back to its own ranking.
+
+    `total_mcq_attempts` is the student's lifetime MCQ attempt count across
+    the LMS. When below COLD_START_MCQ_THRESHOLD, the first few days inject
+    diagnostic mini-mocks on high-priority topics so mastery can bootstrap.
     """
     mastery = mastery or {}
     due_recall_cards = due_recall_cards or []
     user_multipliers = user_multipliers or {"read": 1.0, "watch": 1.0, "mcq": 1.0}
 
     if not cfg.use_lms_content or not bundle.get("categories"):
-        return _build_chapter_only_schedule(cfg)
+        return _build_chapter_only_schedule(cfg, user_multipliers)
 
     topics = flatten_topics(bundle)
+    topics_by_id = {str(t.get("_id") or ""): t for t in topics}
     mocks = collect_mocks(bundle)
-    # Topic rotation pointer — round-robin so we don't pile the same topic
-    # back-to-back across days.
-    rotation_idx = 0
+
+    # Resolve an ordered topic queue. If the AI shaper has given us one, use it
+    # (with shape-unknown topics appended at the end in rule-based order so we
+    # never silently drop content). Otherwise use the internal _topic_score.
+    shape = plan_shape or {}
+    shape_order: List[str] = list(shape.get("ordered_topic_ids") or [])
+    if shape_order:
+        ordered_topics: List[Dict[str, Any]] = []
+        seen: set[str] = set()
+        for tid in shape_order:
+            t = topics_by_id.get(str(tid))
+            if t is not None and str(tid) not in seen:
+                ordered_topics.append(t)
+                seen.add(str(tid))
+        # Append anything the shaper didn't mention, ranked by rule.
+        tail = sorted(
+            (t for t in topics if str(t.get("_id") or "") not in seen),
+            key=lambda t: -_topic_score(t, mastery, cfg.start_date),
+        )
+        ordered_topics.extend(tail)
+    else:
+        ordered_topics = sorted(topics, key=lambda t: -_topic_score(t, mastery, cfg.start_date))
+
+    # Phase window override from the shaper (days-per-phase). We convert it
+    # into a [(phase, end_day_offset), ...] cut list the per-day loop reads.
+    shape_windows = shape.get("phase_windows") or []
+    phase_cuts: List[tuple[str, int]] = []
+    if shape_windows:
+        acc = 0
+        for w in shape_windows:
+            acc += int(w.get("days") or 0)
+            phase_cuts.append((str(w.get("phase") or "Foundation"), acc))
+
+    def _phase_for_day(day_offset: int, days_left: int, used: set[str]) -> str:
+        if phase_cuts:
+            for name, end in phase_cuts:
+                if day_offset < end:
+                    return name
+            return phase_cuts[-1][0]
+        return _phase_for_coverage(_compute_p1_coverage(topics, used), days_left)
+
+    # Build a quick-lookup of which offsets are blitz days for which topics.
+    blitz_by_offset: Dict[int, List[str]] = {}
+    for b in shape.get("weak_blitzes") or []:
+        tid = str(b.get("topic_id") or "")
+        for off in b.get("days") or []:
+            blitz_by_offset.setdefault(int(off), []).append(tid)
+
+    # Diagnostic week: either shaper-supplied or auto-injected for cold users.
+    diag_by_offset: Dict[int, List[str]] = {}
+    shape_diag = shape.get("diagnostic_week") or []
+    if shape_diag:
+        for e in shape_diag:
+            diag_by_offset[int(e.get("day_offset") or 0)] = [str(t) for t in (e.get("topic_ids") or [])]
+    elif total_mcq_attempts < COLD_START_MCQ_THRESHOLD:
+        # Pick top-5 P1 topics (ignoring focus list; shaper handles nuance) for
+        # the first DIAGNOSTIC_DAYS study days.
+        p1_topics = [t for t in ordered_topics if _priority_weight(t.get("priority_label")) >= 3.0]
+        for i in range(min(DIAGNOSTIC_DAYS, len(p1_topics))):
+            diag_by_offset[i] = [str(p1_topics[i].get("_id") or "")]
 
     days_total = (cfg.end_date - cfg.start_date).days + 1
     days: List[Dict[str, Any]] = []
-
-    # Coverage tracker — how many of each topic's content we've already scheduled
     used_content: set[str] = set()
-
-    # Track recall cards we've placed so we don't dump every due card on day 1.
     recall_pool = list(due_recall_cards)
+
+    rotation_idx = 0
+    study_day_counter = 0  # counts only non-rest days (for cold-start diag)
 
     for day_offset in range(days_total):
         d = cfg.start_date + timedelta(days=day_offset)
@@ -439,10 +575,7 @@ def build_schedule(
             })
             continue
 
-        # Compute current phase from coverage
-        p1_coverage = _compute_p1_coverage(topics, used_content)
-        phase = _phase_for_coverage(p1_coverage, days_left)
-
+        phase = _phase_for_day(day_offset, days_left, used_content)
         budget = cfg.effective_daily_minutes
         remaining = budget
         day_video_used = 0
@@ -454,26 +587,41 @@ def build_schedule(
         recall_block = _build_recall_block(chunk)
         if recall_block:
             blocks.append(recall_block)
-            spent = sum(i["est_min"] for i in recall_block["items"])
-            remaining -= spent
+            remaining -= int(recall_block.get("minutes") or 0)
 
-        # 2) Mock days — Final phase gets one mock every 3 days (if available)
+        # 2a) Diagnostic mini-mock (cold-start week-1). One per study day.
+        diag_tids = diag_by_offset.get(study_day_counter, [])
+        for diag_tid in diag_tids[:1]:
+            diag_topic = topics_by_id.get(diag_tid)
+            if diag_topic:
+                mm = _build_mini_mock_block(diag_topic, DIAGNOSTIC_MINI_MOCK_Q, user_multipliers["mcq"])
+                blocks.append(mm)
+                remaining -= int(mm.get("minutes") or 0)
+
+        # 2b) Full mock days — Final phase gets one every 3 days (if available)
         if phase == "Final" and mocks and day_offset % 3 == 0:
-            mock = mocks[day_offset // 3 % len(mocks)]
+            mock = mocks[(day_offset // 3) % len(mocks)]
             mock_block = _build_mock_block(mock, user_multipliers["mcq"])
             blocks.append(mock_block)
-            remaining -= mock_block["items"][0]["est_min"]
+            remaining -= int(mock_block.get("minutes") or 0)
 
-        # 3) Topic blocks — pick top-N topics for today by score
+        # 3) Topic picks for the day.
         rotation_count = PHASE_TOPIC_ROTATION_RATE[phase]
-        ranked = sorted(topics, key=lambda t: -_topic_score(t, mastery, d))
-        # Round-robin offset so days don't all see the same top-3
         picked: List[Dict[str, Any]] = []
-        for i in range(rotation_count):
-            if not ranked:
-                break
-            picked.append(ranked[(rotation_idx + i) % len(ranked)])
-        rotation_idx = (rotation_idx + rotation_count) % max(1, len(ranked))
+
+        # Blitz topics always land first on their scheduled offset.
+        blitz_tids = blitz_by_offset.get(day_offset, [])
+        for tid in blitz_tids:
+            t = topics_by_id.get(str(tid))
+            if t is not None and t not in picked:
+                picked.append(t)
+
+        # Round-robin from the ordered queue for the remaining slots.
+        remaining_slots = max(0, rotation_count - len(picked))
+        if ordered_topics:
+            for i in range(remaining_slots):
+                picked.append(ordered_topics[(rotation_idx + i) % len(ordered_topics)])
+            rotation_idx = (rotation_idx + remaining_slots) % max(1, len(ordered_topics))
 
         # 4) For each picked topic, fill the day greedily
         for topic in picked:
@@ -492,7 +640,7 @@ def build_schedule(
                 if not builder:
                     continue
                 blocks.append(builder)
-                spent = sum(i["est_min"] for i in builder["items"])
+                spent = int(builder.get("minutes") or 0)
                 remaining -= spent
                 if kind == "watch":
                     day_video_used += spent
@@ -507,6 +655,7 @@ def build_schedule(
                 "actual": None,
             },
         })
+        study_day_counter += 1
 
     return days
 
@@ -538,25 +687,111 @@ def _compute_p1_coverage(topics: List[Dict[str, Any]], used_content: set[str]) -
     return p1_seen / p1_total
 
 
-def _build_chapter_only_schedule(cfg: SchedulerConfig) -> List[Dict[str, Any]]:
+def _build_chapter_only_schedule(
+    cfg: SchedulerConfig,
+    user_multipliers: Optional[Dict[str, float]] = None,
+) -> List[Dict[str, Any]]:
     """
     Fallback when use_lms_content=False or bundle is empty (free user, no
-    subscriptions). The day card still has structure but blocks are
-    chapter-reference shells with no specific content_ids — the existing
-    legacy planner.py builders fill these in via SYLLABUS_TREE.
+    subscription). Populates real read / practice blocks referencing the
+    hardcoded SYLLABUS_TREE from app/priorities.py so the day cards are
+    never empty. MCQ sets here are generic (no content_id) and rendered by
+    the client as "open the practice bank" links.
     """
-    days = []
-    d = cfg.start_date
-    while d <= cfg.end_date:
+    user_multipliers = user_multipliers or {"read": 1.0, "watch": 1.0, "mcq": 1.0}
+    try:
+        from app.priorities import SYLLABUS_TREE, get_subtopics  # noqa: F401
+    except Exception:
+        SYLLABUS_TREE = {}
+
+    # Flatten the tree into (topic_name, subtopic_dict, priority_weight).
+    flat: List[tuple[str, Dict[str, Any], float]] = []
+    for topic_name, meta in (SYLLABUS_TREE or {}).items():
+        pw = _priority_weight(meta.get("priority") or "P2_MID")
+        for sub in meta.get("subtopics") or []:
+            flat.append((topic_name, sub, pw))
+    # Higher priority first.
+    flat.sort(key=lambda x: (-x[2], x[0]))
+
+    read_min_per_sub = int(25 * user_multipliers["read"])
+    practice_min_per_set = int(25 * user_multipliers["mcq"])
+
+    days: List[Dict[str, Any]] = []
+    total = (cfg.end_date - cfg.start_date).days + 1
+    cursor = 0
+
+    for day_offset in range(total):
+        d = cfg.start_date + timedelta(days=day_offset)
+        if d in cfg.custom_rest_dates or _is_weekly_rest_day(d, cfg.rest_days_per_week):
+            days.append({
+                "day": d.isoformat(),
+                "phase": "Rest",
+                "time_budget_min": 0,
+                "blocks": [],
+                "checkpoint": {"expected_progress": None, "actual": None},
+            })
+            continue
+
+        budget = cfg.effective_daily_minutes
+        remaining = budget
+        blocks: List[Dict[str, Any]] = []
+
+        # 2 read blocks + 1 practice block per day, cycling through the flat list.
+        for _ in range(2):
+            if not flat or remaining < read_min_per_sub + 5:
+                break
+            topic_name, sub, _pw = flat[cursor % len(flat)]
+            cursor += 1
+            sub_title = sub.get("name") if isinstance(sub, dict) else str(sub)
+            ref = sub.get("ref") if isinstance(sub, dict) else None
+            block = _finalize_block({
+                "block_id": _new_block_id(),
+                "kind": "read",
+                "topic_ref": {"lms_topic_id": None, "name": topic_name},
+                "items": [{
+                    "content_kind": "chapter_ref",
+                    "content_id": None,
+                    "title": sub_title or topic_name,
+                    "reference": ref,
+                    "est_min": read_min_per_sub,
+                }],
+                "rationale": "Chapter-reference mode — subscribe to unlock LMS content",
+                "state": "pending",
+                "completed_at": None,
+            })
+            blocks.append(block)
+            remaining -= read_min_per_sub
+
+        if flat and remaining >= practice_min_per_set:
+            topic_name, sub, _pw = flat[cursor % len(flat)]
+            cursor += 1
+            block = _finalize_block({
+                "block_id": _new_block_id(),
+                "kind": "practice",
+                "topic_ref": {"lms_topic_id": None, "name": topic_name},
+                "items": [{
+                    "content_kind": "mcq_set",
+                    "content_id": f"generic:{topic_name}",
+                    "topic_id": None,
+                    "count": 20,
+                    "est_min": practice_min_per_set,
+                    "target_accuracy": 70,
+                }],
+                "rationale": "Generic MCQ practice — open the NEET SS practice bank",
+                "state": "pending",
+                "completed_at": None,
+            })
+            blocks.append(block)
+            remaining -= practice_min_per_set
+
         days.append({
             "day": d.isoformat(),
             "phase": "Chapter-mode",
-            "time_budget_min": cfg.effective_daily_minutes,
-            "blocks": [],   # legacy planner fills this
-            "checkpoint": {"expected_progress": None, "actual": None},
+            "time_budget_min": budget,
+            "blocks": blocks,
+            "checkpoint": {"expected_progress": round((day_offset + 1) / total, 3), "actual": None},
             "_chapter_only": True,
         })
-        d += timedelta(days=1)
     return days
 
 
@@ -569,36 +804,47 @@ def build_schedule_from_signal(
     bundle: Dict[str, Any],
     cfg: SchedulerConfig,
     user_signal: Optional[Dict[str, Any]] = None,
+    mcq_history: Optional[Dict[str, Any]] = None,
+    content_progress: Optional[Dict[str, Any]] = None,
+    mock_history: Optional[Dict[str, Any]] = None,
+    daily_activity: Optional[Dict[str, Any]] = None,
     fsrs_cards_by_topic: Optional[Dict[str, Dict[str, Any]]] = None,
     due_recall_cards: Optional[List[Dict[str, Any]]] = None,
     user_multipliers: Optional[Dict[str, float]] = None,
+    plan_shape: Optional[Dict[str, Any]] = None,
+    mastery_vector_override: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     """
-    The single entry point planner_v2.py calls when generating a plan.
+    High-level orchestrator planner_v2.py calls when generating a plan.
 
     Steps:
-      1. Build a blended mastery vector from `user_signal` + local FSRS cards
-         (calls into app.ai.mastery.build_vector — soft import so the legacy
-         scheduler still works without the AI subpackage).
+      1. Build a blended mastery vector from ALL available LMS signals
+         (mcq_history + content_progress + mock_history + daily_activity +
+         user_signal) plus local FSRS cards. If the caller already has a
+         vector (e.g. the route pre-computed one to feed the AI shaper),
+         it may pass it via `mastery_vector_override` to skip this step.
       2. Convert the vector into the {topic_id: dict} shape build_schedule
-         already accepts.
-      3. Call build_schedule with the enriched mastery + due cards.
+         accepts for its rule-based ranking fallback.
+      3. Call build_schedule with the enriched mastery + due cards + the
+         optional `plan_shape` blueprint produced by ai/plan_shaper.py.
       4. Return (days, mastery_vector) so the caller can persist both.
-
-    The mastery vector is returned alongside so routers/planner_v2.py can
-    write it to TopicMastery rows in one shot — saves a re-computation.
     """
-    # Soft import — keeps the scheduler usable in unit tests that don't have
-    # the AI extras installed.
     try:
         from app.ai.mastery import build_vector as _build_vector
     except ImportError:  # pragma: no cover
         _build_vector = None
 
     flat_topics = flatten_topics(bundle) if bundle.get("categories") else []
-    if _build_vector is not None:
+
+    if mastery_vector_override is not None:
+        mastery_vector = mastery_vector_override
+    elif _build_vector is not None:
         mastery_vector = _build_vector(
-            user_signal or {},
+            lms_signal=user_signal or {},
+            mcq_history=mcq_history or {},
+            content_progress=content_progress or {},
+            mock_history=mock_history or {},
+            daily_activity=daily_activity or {},
             fsrs_cards_by_topic=fsrs_cards_by_topic or {},
             bundle_topics=flat_topics,
         )
@@ -614,12 +860,24 @@ def build_schedule_from_signal(
 
     # Shape the vector into what build_schedule's mastery dict expects.
     legacy_mastery: Dict[str, Dict[str, Any]] = {}
+    total_attempts = 0
     for tid, row in mastery_vector.items():
         drivers = row.get("drivers") or {}
+        # The unified mastery model may nest driver groups (mcq/content/mock/...)
+        # while the old flat shape put `accuracy` and `attempted` directly on
+        # `drivers`. Support both so either caller works.
+        mcq_d = drivers.get("mcq") if isinstance(drivers.get("mcq"), dict) else None
+        engagement_d = drivers.get("engagement") if isinstance(drivers.get("engagement"), dict) else None
+        attempted = int((mcq_d or drivers).get("attempted") or 0)
+        total_attempts += attempted
+        accuracy_pct = float((mcq_d or drivers).get("accuracy") or 0)
+        days_since_last = (engagement_d or drivers).get("last_touched_days_ago")
+        if days_since_last is None:
+            days_since_last = drivers.get("days_since_last")
         legacy_mastery[str(tid)] = {
             "mastery": float(row.get("mastery") or 0),
-            "accuracy": float(drivers.get("accuracy") or 0) / 100.0,
-            "last_studied_days_ago": drivers.get("days_since_last"),
+            "accuracy": (accuracy_pct / 100.0) if accuracy_pct > 1.0 else accuracy_pct,
+            "last_studied_days_ago": days_since_last,
             "gap": float(row.get("gap") or 0),
             "confidence": float(row.get("confidence") or 0),
         }
@@ -630,5 +888,7 @@ def build_schedule_from_signal(
         mastery=legacy_mastery,
         due_recall_cards=due_recall_cards,
         user_multipliers=user_multipliers,
+        plan_shape=plan_shape,
+        total_mcq_attempts=total_attempts,
     )
     return days, mastery_vector

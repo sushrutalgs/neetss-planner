@@ -33,6 +33,7 @@ from app.auth_lms import LmsUser, enforce_subscription, get_lms_user
 from app.database import get_db
 from app.lms_client import (
     LmsError,
+    fetch_all_signals,
     get_syllabus_bundle,
     get_user_signal,
     get_user_daily_activity,
@@ -48,6 +49,7 @@ from app.content_scheduler import (
     build_schedule_from_signal,
 )
 from app.ai.plan_rationale import generate_plan_rationale
+from app.ai.plan_shaper import shape_plan
 from app.ai.mastery import build_vector as build_mastery_vector, rank_weakness, coverage_pct, avg_mastery
 from app.ai.recommender import suggest_next_actions
 from app.models import Plan, RecallCard, TopicMastery, User
@@ -205,12 +207,26 @@ def _persist_mastery_vector(
         if not tid:
             continue
         drivers = (row or {}).get("drivers", {}) or {}
-        attempted = int(drivers.get("attempted", 0) or 0)
-        correct = int(round(attempted * (drivers.get("accuracy", 0.0) or 0.0) / 100.0))
+        mcq_d = drivers.get("mcq") if isinstance(drivers.get("mcq"), dict) else None
+        content_d = drivers.get("content") if isinstance(drivers.get("content"), dict) else None
+        engagement_d = drivers.get("engagement") if isinstance(drivers.get("engagement"), dict) else None
+        fsrs_d = drivers.get("fsrs") if isinstance(drivers.get("fsrs"), dict) else None
+
+        attempted = int((mcq_d or drivers).get("attempted") or 0)
+        accuracy_pct = float((mcq_d or drivers).get("accuracy") or 0.0)
+        if accuracy_pct <= 1.0 and accuracy_pct > 0:
+            accuracy_pct *= 100.0
+        correct = int(round(attempted * accuracy_pct / 100.0))
+
+        coverage = float((content_d or {}).get("coverage_pct", drivers.get("coverage", 0.0)) or 0.0)
+
+        days_ago = (engagement_d or {}).get("last_touched_days_ago", drivers.get("days_since_last"))
         last_studied = None
-        days_ago = drivers.get("days_since_last")
         if isinstance(days_ago, (int, float)) and days_ago < 9000:
             last_studied = now - timedelta(days=float(days_ago))
+
+        recall_strength = (fsrs_d or {}).get("stability", drivers.get("recall_strength"))
+        theta = drivers.get("theta")
 
         rec = existing.get(tid)
         if rec is None:
@@ -220,22 +236,23 @@ def _persist_mastery_vector(
                 topic_name=(row or {}).get("topic_name"),
                 attempts=attempted,
                 correct=correct,
-                coverage_pct=float(drivers.get("coverage", 0.0) or 0.0),
+                coverage_pct=coverage,
                 last_studied_at=last_studied,
-                recall_strength=drivers.get("recall_strength"),
+                recall_strength=recall_strength,
                 mastery_score=float((row or {}).get("mastery", 0.0) or 0.0),
-                theta=drivers.get("theta"),
+                theta=theta,
             )
             db.add(rec)
         else:
             rec.topic_name = (row or {}).get("topic_name") or rec.topic_name
             rec.attempts = attempted
             rec.correct = correct
-            rec.coverage_pct = float(drivers.get("coverage", rec.coverage_pct) or rec.coverage_pct)
+            if coverage > 0:
+                rec.coverage_pct = coverage
             if last_studied is not None:
                 rec.last_studied_at = last_studied
-            if drivers.get("recall_strength") is not None:
-                rec.recall_strength = drivers.get("recall_strength")
+            if recall_strength is not None:
+                rec.recall_strength = recall_strength
             rec.mastery_score = float((row or {}).get("mastery", rec.mastery_score) or rec.mastery_score)
     db.commit()
 
@@ -374,8 +391,24 @@ def me_today(
 
     today_iso = date.today().isoformat()
     day = _find_day(plan.data_json or {}, today_iso)
+    catch_up = False
     if not day:
-        # Plan exists but today is past its end (or before start) — surface a hint.
+        # Plan exists but today's date isn't in the plan window. Instead of
+        # showing an empty "no day card" screen, surface the nearest upcoming
+        # study day so the user always has something to work on.
+        upcoming = [d for d in (plan.data_json or {}).get("days", []) if d.get("day", "") >= today_iso]
+        if upcoming:
+            day = upcoming[0]
+            catch_up = True
+        else:
+            # Fall back to the last day of the plan if the entire plan is in
+            # the past — better than nothing.
+            past = (plan.data_json or {}).get("days", []) or []
+            if past:
+                day = past[-1]
+                catch_up = True
+
+    if not day:
         return {"has_plan": True, "plan_id": plan.id, "day": None, "message": "No day card for today."}
 
     return {
@@ -383,6 +416,7 @@ def me_today(
         "plan_id": plan.id,
         "plan_name": plan.name,
         "needs_rebuild": plan.needs_rebuild,
+        "catch_up": catch_up,
         "day": day,
         "ai_rationale_md": plan.ai_rationale_md,
     }
@@ -431,13 +465,22 @@ def _count_plan_inclusions(days: List[Dict[str, Any]]) -> Dict[str, Any]:
     for day in days or []:
         for block in day.get("blocks", []) or []:
             kind = block.get("kind") or ""
-            mins = int(block.get("minutes") or 0)
+            # Scheduler stamps `minutes` on every block; fall back to summing
+            # items' est_min for plans generated by older scheduler builds.
+            mins = int(
+                block.get("minutes")
+                or sum(int((it or {}).get("est_min") or 0) for it in (block.get("items") or []))
+                or 0
+            )
             total_minutes += mins
             if kind in minutes_by_kind:
                 minutes_by_kind[kind] += mins
             for item in block.get("items", []) or []:
                 ck = item.get("content_kind")
-                cid = str(item.get("content_id") or "")
+                # MCQ sets don't have a real content_id — use the synthesised
+                # `mcq:<topic_id>` / topic_id fallback so the unique-set count
+                # reflects reality instead of always being zero.
+                cid = str(item.get("content_id") or item.get("topic_id") or "")
                 if not cid:
                     continue
                 if ck == "video":
@@ -447,7 +490,7 @@ def _count_plan_inclusions(days: List[Dict[str, Any]]) -> Dict[str, Any]:
                 elif ck == "mcq_set":
                     mcq_sets.add(cid)
                     mcq_question_target += int(item.get("question_count") or item.get("count") or 10)
-                elif ck == "mock":
+                elif ck in ("mock", "mini_mock"):
                     mocks.add(cid)
 
     return {
@@ -683,14 +726,25 @@ def plans_inclusions(
     if today_day:
         blocks = today_day.get("blocks", []) or []
         today_block_info["total_blocks"] = len(blocks)
-        today_block_info["minutes_planned"] = sum(int(b.get("minutes") or 0) for b in blocks)
-        today_block_info["completed_blocks"] = sum(1 for b in blocks if b.get("done") or b.get("completed"))
+
+        def _block_minutes(b: Dict[str, Any]) -> int:
+            m = b.get("minutes")
+            if m:
+                return int(m)
+            return int(sum(int((it or {}).get("est_min") or 0) for it in (b.get("items") or [])))
+
+        def _block_done(b: Dict[str, Any]) -> bool:
+            return b.get("state") == "completed" or bool(b.get("done") or b.get("completed"))
+
+        today_block_info["minutes_planned"] = sum(_block_minutes(b) for b in blocks)
+        today_block_info["completed_blocks"] = sum(1 for b in blocks if _block_done(b))
         today_block_info["blocks"] = [
             {
                 "kind": b.get("kind"),
                 "title": (b.get("topic_ref") or {}).get("name") or (b.get("items") or [{}])[0].get("title") or b.get("kind"),
-                "minutes": int(b.get("minutes") or 0),
-                "done": bool(b.get("done") or b.get("completed")),
+                "minutes": _block_minutes(b),
+                "done": _block_done(b),
+                "state": b.get("state") or "pending",
             }
             for b in blocks
         ]
@@ -744,19 +798,22 @@ def _plans_generate_impl(
 ):
     user = _get_or_create_local_user(db, lms_user)
 
-    bundle: Dict[str, Any] = {}
-    user_signal: Dict[str, Any] = {}
+    signals: Dict[str, Any] = {}
     if payload.use_lms_content:
         try:
-            bundle = get_syllabus_bundle(lms_user.token)
-        except LmsError as e:
-            logger.warning("[plans/generate] bundle fetch failed: %s", e)
-            bundle = {}
-        try:
-            user_signal = get_user_signal(lms_user.token)
-        except LmsError as e:
-            logger.warning("[plans/generate] user-signal fetch failed: %s", e)
-            user_signal = {}
+            signals = fetch_all_signals(lms_user.token) or {}
+        except Exception as e:
+            logger.warning("[plans/generate] fetch_all_signals crashed: %s", e)
+            signals = {}
+        if signals.get("errors"):
+            logger.warning("[plans/generate] partial LMS failures: %s", signals["errors"])
+
+    bundle = signals.get("bundle") or {}
+    user_signal = signals.get("signal") or {}
+    mcq_history = signals.get("mcq_history") or {}
+    content_progress = signals.get("content_progress") or {}
+    mock_history = signals.get("mock_history") or {}
+    daily_activity = signals.get("daily_activity") or {}
 
     start = payload.resolved_start()
     end = payload.resolved_end()
@@ -777,16 +834,56 @@ def _plans_generate_impl(
         focus_topic_ids=payload.focus_topic_ids,
     )
 
+    # Build the unified mastery vector up-front so the shaper and the
+    # scheduler both see the same snapshot.
+    flat_topics: List[Dict[str, Any]] = []
+    for cat in (bundle.get("categories") or []):
+        for sub in (cat.get("subcategories") or []):
+            for t in (sub.get("topics") or []):
+                flat_topics.append({**t, "_category_name": cat.get("name")})
+
+    mastery_vector = build_mastery_vector(
+        lms_signal=user_signal,
+        mcq_history=mcq_history,
+        content_progress=content_progress,
+        mock_history=mock_history,
+        daily_activity=daily_activity,
+        fsrs_cards_by_topic=None,
+        bundle_topics=flat_topics,
+    )
+
+    # Claude-driven plan shaping (feature-flagged). Failure → fall back to
+    # pure rule-based scheduling.
+    plan_shape: Optional[Dict[str, Any]] = None
+    if cfg.use_lms_content:
+        try:
+            plan_shape = shape_plan(
+                mastery_vector=mastery_vector,
+                bundle=bundle,
+                start_date=start,
+                end_date=end,
+                hours_per_day=payload.hours_per_day,
+                subscription_status=lms_user.subscription_status,
+                daily_activity=daily_activity,
+            )
+        except Exception as e:
+            logger.warning("[plans/generate] shaper crashed: %s", e)
+            plan_shape = None
+
     due = _load_due_recall(db, user.id)
-    # Use the new orchestrator that pulls in LMS signal + builds the mastery
-    # vector from real performance data, not just local DB heuristics.
     days, mastery_vector = build_schedule_from_signal(
         bundle=bundle,
         cfg=cfg,
         user_signal=user_signal,
-        fsrs_cards_by_topic=None,  # TODO: hydrate from RecallCard rows
+        mcq_history=mcq_history,
+        content_progress=content_progress,
+        mock_history=mock_history,
+        daily_activity=daily_activity,
+        fsrs_cards_by_topic=None,
         due_recall_cards=due,
         user_multipliers=_user_multipliers(user),
+        plan_shape=plan_shape,
+        mastery_vector_override=mastery_vector,
     )
 
     # Persist the mastery vector into TopicMastery so the Progress radar +
@@ -832,6 +929,7 @@ def _plans_generate_impl(
             "config": payload.model_dump(mode="json"),
             "bundle_version": bundle.get("version"),
             "rationale_meta": rationale,  # full structured payload for clients that want sections
+            "plan_shape": plan_shape,     # shaper blueprint (phase_windows, strategy_md, blitzes)
         },
         config_json=payload.model_dump(mode="json"),
         use_lms_content=cfg.use_lms_content,
@@ -855,6 +953,8 @@ def _plans_generate_impl(
         "use_lms_content": plan.use_lms_content,
         "ai_rationale_md": rationale_md,
         "ai_rationale_meta": rationale,
+        "ai_strategy_md": (plan_shape or {}).get("strategy_md"),
+        "ai_shape_applied": bool(plan_shape),
     }
 
 
@@ -995,32 +1095,36 @@ def blocks_reorder(
 def _fresh_signal_and_vector(
     db: Session, user: User, lms_user: LmsUser
 ) -> tuple[Dict[str, Any], Dict[str, Any], Dict[str, Dict[str, Any]]]:
-    """Pull bundle + LMS signal and rebuild the mastery vector. Tolerant of LMS hiccups."""
-    bundle: Dict[str, Any] = {}
-    user_signal: Dict[str, Any] = {}
+    """Pull every LMS signal and rebuild the mastery vector. Tolerant of hiccups."""
     try:
-        bundle = get_syllabus_bundle(lms_user.token) or {}
-    except LmsError as e:
-        logger.warning("[ml] bundle fetch failed: %s", e)
-    try:
-        user_signal = get_user_signal(lms_user.token) or {}
-    except LmsError as e:
-        logger.warning("[ml] user-signal fetch failed: %s", e)
+        signals = fetch_all_signals(lms_user.token) or {}
+    except Exception as e:
+        logger.warning("[ml] fetch_all_signals crashed: %s", e)
+        signals = {}
 
-    # Flatten bundle topics for the mastery builder.
+    bundle = signals.get("bundle") or {}
+    user_signal = signals.get("signal") or {}
+    mcq_history = signals.get("mcq_history") or {}
+    content_progress = signals.get("content_progress") or {}
+    mock_history = signals.get("mock_history") or {}
+    daily_activity = signals.get("daily_activity") or {}
+
     bundle_topics: List[Dict[str, Any]] = []
     for cat in (bundle.get("categories") or []):
         for sub in (cat.get("subcategories") or []):
             for t in (sub.get("topics") or []):
                 bundle_topics.append({
-                    "topic_id": str(t.get("_id") or t.get("topic_id") or ""),
-                    "topic_name": t.get("name", ""),
-                    "category": cat.get("name", ""),
-                    "subcategory": sub.get("name", ""),
+                    **t,
+                    "_category_name": cat.get("name", ""),
+                    "_subcategory_name": sub.get("name", ""),
                 })
 
     vector = build_mastery_vector(
         lms_signal=user_signal,
+        mcq_history=mcq_history,
+        content_progress=content_progress,
+        mock_history=mock_history,
+        daily_activity=daily_activity,
         fsrs_cards_by_topic=None,
         bundle_topics=bundle_topics,
     )
@@ -1130,13 +1234,17 @@ def ml_replan(
         raise HTTPException(400, "plan missing start_date/end_date — regenerate it once with the new flow")
 
     try:
-        bundle = get_syllabus_bundle(lms_user.token) or {}
-    except LmsError:
-        bundle = {}
-    try:
-        user_signal = get_user_signal(lms_user.token) or {}
-    except LmsError:
-        user_signal = {}
+        signals = fetch_all_signals(lms_user.token) or {}
+    except Exception as e:
+        logger.warning("[ml/replan] fetch_all_signals crashed: %s", e)
+        signals = {}
+
+    bundle = signals.get("bundle") or {}
+    user_signal = signals.get("signal") or {}
+    mcq_history = signals.get("mcq_history") or {}
+    content_progress = signals.get("content_progress") or {}
+    mock_history = signals.get("mock_history") or {}
+    daily_activity = signals.get("daily_activity") or {}
 
     cfg_in = plan.config_json or {}
     cfg = SchedulerConfig(
@@ -1153,14 +1261,52 @@ def ml_replan(
         focus_topic_ids=cfg_in.get("focus_topic_ids", []) or [],
     )
 
+    flat_topics: List[Dict[str, Any]] = []
+    for cat in (bundle.get("categories") or []):
+        for sub in (cat.get("subcategories") or []):
+            for t in (sub.get("topics") or []):
+                flat_topics.append({**t, "_category_name": cat.get("name")})
+
+    mastery_vector = build_mastery_vector(
+        lms_signal=user_signal,
+        mcq_history=mcq_history,
+        content_progress=content_progress,
+        mock_history=mock_history,
+        daily_activity=daily_activity,
+        fsrs_cards_by_topic=None,
+        bundle_topics=flat_topics,
+    )
+
+    plan_shape: Optional[Dict[str, Any]] = None
+    if cfg.use_lms_content:
+        try:
+            plan_shape = shape_plan(
+                mastery_vector=mastery_vector,
+                bundle=bundle,
+                start_date=cfg.start_date,
+                end_date=cfg.end_date,
+                hours_per_day=cfg.hours_per_day,
+                subscription_status=lms_user.subscription_status,
+                daily_activity=daily_activity,
+            )
+        except Exception as e:
+            logger.warning("[ml/replan] shaper crashed: %s", e)
+            plan_shape = None
+
     due = _load_due_recall(db, user.id)
     days, mastery_vector = build_schedule_from_signal(
         bundle=bundle,
         cfg=cfg,
         user_signal=user_signal,
+        mcq_history=mcq_history,
+        content_progress=content_progress,
+        mock_history=mock_history,
+        daily_activity=daily_activity,
         fsrs_cards_by_topic=None,
         due_recall_cards=due,
         user_multipliers=_user_multipliers(user),
+        plan_shape=plan_shape,
+        mastery_vector_override=mastery_vector,
     )
     try:
         _persist_mastery_vector(db, user.id, mastery_vector)

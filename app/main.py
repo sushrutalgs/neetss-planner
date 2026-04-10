@@ -82,7 +82,7 @@ if os.path.exists(static_dir):
 # Routers
 try:
     from app.routers import (
-        users, plans, progress, admin,
+        users, progress, admin,
         mcq_scores, study_sessions, notes, recall,
         analytics, leaderboard, ai_coach, dashboard,
         webhook, lms_content, planner_v2, ml,
@@ -98,7 +98,9 @@ try:
 
     app.include_router(dashboard.router, prefix="/api", tags=["Dashboard"])
     app.include_router(users.router, prefix="/api", tags=["Users"])
-    app.include_router(plans.router, prefix="/api", tags=["Plans"])
+    # Legacy /api/plan + /api/plans/save router (app/routers/plans.py) retired
+    # in the Phase 2 deep-upgrade. All plan generation now goes through
+    # planner_v2's POST /api/plans/generate + /api/ml/replan endpoints.
     app.include_router(progress.router, prefix="/api", tags=["Progress"])
     app.include_router(mcq_scores.router, prefix="/api", tags=["MCQ Scores"])
     app.include_router(study_sessions.router, prefix="/api", tags=["Study Sessions"])
@@ -117,9 +119,12 @@ except Exception as e:
 
 @app.get("/")
 def serve_frontend():
-    index_path = os.path.join(static_dir, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
+    # v1 SPA (static/index.html) retired in the Phase 2 deep upgrade. The
+    # root path now serves the LMS-federated v2 SPA directly so existing
+    # bookmarks land on the current planner UI.
+    v2_path = os.path.join(static_dir, "v2.html")
+    if os.path.exists(v2_path):
+        return FileResponse(v2_path)
     return {"message": "Cortex Surgery Planner backend running. Frontend not found."}
 
 

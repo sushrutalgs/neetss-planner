@@ -46,42 +46,9 @@ class TokenOut(BaseModel):
 
 
 # --------- Planner --------- #
-
-class PlanRequest(BaseModel):
-    start_date: date = Field(..., description="Start date (YYYY-MM-DD)")
-    exam_date: date = Field(..., description="Exam date (YYYY-MM-DD, inclusive)")
-    hours_per_day: float = Field(..., gt=0, le=18, description="Daily study hours")
-    mocks: int = Field(2, ge=0, le=50, description="Number of mock exams")
-    avg_minutes_per_mcq: float = Field(2.5, ge=1.0, le=5.0, description="Avg time per MCQ")
-    rest_per_week: int = Field(0, ge=0, le=2, description="Rest days per week (0-2)")
-    custom_rest_dates: Optional[List[str]] = Field(None, description="Specific rest dates (ISO)")
-    custom_weights: Optional[Dict[str, float]] = Field(None, description="Topic weight overrides")
-    selected_topics: Optional[List[str]] = Field(None, description="Ordered list of topic names; first = highest priority. If empty/null, all topics are used.")
-    revision_rounds: int = Field(1, ge=1, le=5, description="Number of revision cycles (1-5)")
-
-
-class PlanResponse(BaseModel):
-    meta: Dict[str, Any]
-    schedule: List[Dict[str, Any]]
-    weekly_summaries: List[Dict[str, Any]]
-    syllabus_coverage: Optional[Dict[str, List[str]]] = None
-
-
-# --------- Plans --------- #
-
-class SavePlanRequest(BaseModel):
-    name: str
-    data: Dict[str, Any]
-    config: Optional[Dict[str, Any]] = None
-
-
-class PlanListItem(BaseModel):
-    id: int
-    name: str
-    created_at: str
-
-    class Config:
-        from_attributes = True
+# Legacy PlanRequest, PlanResponse, SavePlanRequest, PlanListItem retired —
+# all plan generation now uses planner_v2's GeneratePlanRequest + inline
+# response dicts. See app/routers/planner_v2.py.
 
 
 # --------- Progress --------- #
