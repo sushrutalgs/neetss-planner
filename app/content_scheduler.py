@@ -121,15 +121,37 @@ def _phase_for_coverage(p1_coverage: float, days_left: int) -> str:
 
 
 def _priority_weight(label: Optional[str]) -> float:
-    """Map LMS priority labels to a numeric weight for topic ranking."""
+    """Map LMS priority labels to a numeric weight for topic ordering.
+
+    Higher weight = scheduled earlier and gets more daily time share.
+    Uses the 5-level Priority Manager labels from the LMS backend.
+    """
+    WEIGHTS = {
+        "Must Know":     5.0,
+        "High Yield":    4.0,
+        "Important":     3.0,
+        "Good to Know":  2.0,
+        "Low Priority":  1.0,
+    }
     if not label:
-        return 1.0
-    s = label.upper()
-    if "P1" in s or "HIGH" in s:
+        return 2.0  # untagged content treated as "Good to Know"
+    # Exact match
+    w = WEIGHTS.get(label.strip())
+    if w is not None:
+        return w
+    # Legacy fallback
+    up = label.upper()
+    if "MUST" in up:
+        return 5.0
+    if "HIGH" in up or "P1" in up:
+        return 4.0
+    if "IMPORTANT" in up:
         return 3.0
-    if "P2" in s or "MED" in s:
+    if "GOOD" in up or "P2" in up or "MID" in up:
         return 2.0
-    return 1.0
+    if "LOW" in up or "P3" in up:
+        return 1.0
+    return 2.0
 
 
 def _topic_score(
@@ -504,6 +526,214 @@ def collect_mocks(bundle: Dict[str, Any]) -> List[Dict[str, Any]]:
     return list(bundle.get("mocks_global") or [])
 
 
+# ═══════════════════════════════════════════════════════════════
+#  Staged Content Ladder — the study flow per topic
+# ═══════════════════════════════════════════════════════════════
+#
+# Each topic progresses through 5 stages with expanding spacing
+# for spaced-repetition retention:
+#
+#   Stage 1: READ notes            → pages * 3 min/page
+#   Stage 2: WATCH videos          → duration_sec / 60 * 1.5
+#   Stage 3: MCQ PRACTICE          → count * 1.5 min  (untimed practice)
+#   Stage 4: TEST + DISCUSSION     → count * 5 min    (exam mode, review)
+#   Stage 5: MOCK                  → full day
+#
+# On any given day, the student works 3-4 topics at DIFFERENT stages,
+# so they always mix fresh learning + reinforcement + testing.
+
+STAGES = ["read", "watch", "practice", "test", "mock"]
+
+# ── Priority levels from the LMS Priority Manager ──
+#
+#   Must Know     → highest urgency, tightest spacing, most MCQs
+#   High Yield    → core exam topics, tight spacing
+#   Important     → solid coverage needed, moderate spacing
+#   Good to Know  → breadth topics, wider spacing
+#   Low Priority  → skim only if time allows, widest spacing
+#
+# Spacing = study-day gaps between stages (read → watch → practice → test)
+SPACING_BY_PRIORITY = {
+    "Must Know":     [0, 1, 3,  5,  8],
+    "High Yield":    [0, 2, 4,  7, 10],
+    "Important":     [0, 3, 5,  9, 14],
+    "Good to Know":  [0, 4, 7, 12, 20],
+    "Low Priority":  [0, 5, 10, 18, 28],
+}
+
+# How many MCQs per practice/test session by priority
+MCQ_COUNTS = {
+    "Must Know":     {"practice": 50, "test": 40},
+    "High Yield":    {"practice": 40, "test": 30},
+    "Important":     {"practice": 30, "test": 20},
+    "Good to Know":  {"practice": 20, "test": 15},
+    "Low Priority":  {"practice": 10, "test": 10},
+}
+
+# Default for topics with no priority assigned
+_DEFAULT_PRIORITY = "Important"
+
+
+def _get_priority_key(label: Optional[str]) -> str:
+    """Map an LMS priority_label string to our spacing/MCQ lookup key.
+
+    The LMS Priority Manager assigns one of 5 labels:
+      Must Know, High Yield, Important, Good to Know, Low Priority.
+    The label string arrives as-is in the bundle's `priority_label` field.
+    Legacy P1/P2/P3 labels from the old planner are also handled.
+    """
+    if not label:
+        return _DEFAULT_PRIORITY
+    s = label.strip()
+    # Exact match first (the normal path)
+    if s in SPACING_BY_PRIORITY:
+        return s
+    # Legacy / fallback mapping
+    up = s.upper()
+    if "MUST" in up:
+        return "Must Know"
+    if "HIGH" in up or "P1" in up:
+        return "High Yield"
+    if "IMPORTANT" in up:
+        return "Important"
+    if "GOOD" in up or "P2" in up or "MID" in up:
+        return "Good to Know"
+    if "LOW" in up or "P3" in up:
+        return "Low Priority"
+    return _DEFAULT_PRIORITY
+
+
+def _estimate_topic_stage_minutes(
+    topic: Dict[str, Any],
+    stage: str,
+    priority_key: str,
+    user_multipliers: Dict[str, float],
+) -> int:
+    """Estimate how many minutes a stage will take for this topic."""
+    mul = user_multipliers or {"read": 1.0, "watch": 1.0, "mcq": 1.0}
+
+    if stage == "read":
+        notes_meta = topic.get("notes_meta") or []
+        if not notes_meta:
+            counts = topic.get("content_counts") or {}
+            n = int(counts.get("notes") or 0)
+            return int(n * 22 * mul.get("read", 1.0)) if n else 0
+        total = 0
+        for m in notes_meta:
+            total += _estimate_note_minutes(m, fallback=22)
+        return max(0, int(total * mul.get("read", 1.0)))
+
+    if stage == "watch":
+        videos_meta = topic.get("videos_meta") or []
+        if not videos_meta:
+            counts = topic.get("content_counts") or {}
+            n = int(counts.get("videos") or 0)
+            return int(n * 20 * mul.get("watch", 1.0)) if n else 0
+        total = 0
+        for m in videos_meta:
+            total += _estimate_video_minutes(m, fallback=20)
+        return max(0, int(total * mul.get("watch", 1.0)))
+
+    if stage == "practice":
+        counts = topic.get("content_counts") or {}
+        available = int(counts.get("mcqs") or 0)
+        target = min(available, MCQ_COUNTS[priority_key]["practice"])
+        return int(target * 1.5 * mul.get("mcq", 1.0)) if target else 0
+
+    if stage == "test":
+        counts = topic.get("content_counts") or {}
+        available = int(counts.get("mcqs") or 0)
+        target = min(available, MCQ_COUNTS[priority_key]["test"])
+        return int(target * 5.0 * mul.get("mcq", 1.0)) if target else 0
+
+    return 0  # mock is handled separately
+
+
+def _build_stage_block(
+    topic: Dict[str, Any],
+    stage: str,
+    priority_key: str,
+    remaining_min: int,
+    used_content_ids: set,
+    user_multipliers: Dict[str, float],
+    mastery: Dict[str, Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Build the block for a specific stage of the content ladder."""
+    tid = str(topic.get("_id") or "")
+    mul = user_multipliers or {"read": 1.0, "watch": 1.0, "mcq": 1.0}
+
+    if stage == "read":
+        return _build_read_block(topic, remaining_min, used_content_ids, mul.get("read", 1.0))
+
+    if stage == "watch":
+        return _build_watch_block(topic, remaining_min, 0, used_content_ids, mul.get("watch", 1.0))
+
+    if stage == "practice":
+        # Override the mastery-based count with our priority-driven count
+        counts = topic.get("content_counts") or {}
+        available = int(counts.get("mcqs") or 0)
+        if available <= 0:
+            return None
+        target = min(available, MCQ_COUNTS[priority_key]["practice"])
+        per_q = 1.5 * mul.get("mcq", 1.0)
+        est_min = int(target * per_q)
+        if est_min > remaining_min:
+            target = max(5, int(remaining_min / per_q))
+            est_min = int(target * per_q)
+            if target < 5:
+                return None
+        return _finalize_block({
+            "block_id": _new_block_id(),
+            "kind": "practice",
+            "topic_ref": {"lms_topic_id": tid, "name": topic.get("name", "")},
+            "items": [{
+                "content_kind": "mcq_set",
+                "content_id": f"mcq:{tid}",
+                "topic_id": tid,
+                "count": target,
+                "est_min": est_min,
+                "target_accuracy": 70,
+                "mode": "practice",
+            }],
+            "rationale": f"Practice mode — {target} MCQs at 1.5 min each",
+            "state": "pending",
+            "completed_at": None,
+        })
+
+    if stage == "test":
+        counts = topic.get("content_counts") or {}
+        available = int(counts.get("mcqs") or 0)
+        if available <= 0:
+            return None
+        target = min(available, MCQ_COUNTS[priority_key]["test"])
+        per_q = 5.0 * mul.get("mcq", 1.0)
+        est_min = int(target * per_q)
+        if est_min > remaining_min:
+            target = max(5, int(remaining_min / per_q))
+            est_min = int(target * per_q)
+            if target < 5:
+                return None
+        return _finalize_block({
+            "block_id": _new_block_id(),
+            "kind": "practice",
+            "topic_ref": {"lms_topic_id": tid, "name": topic.get("name", "")},
+            "items": [{
+                "content_kind": "mcq_set",
+                "content_id": f"test:{tid}",
+                "topic_id": tid,
+                "count": target,
+                "est_min": est_min,
+                "target_accuracy": 85,
+                "mode": "test",
+            }],
+            "rationale": f"Test + discussion mode — {target} MCQs at 5 min each (exam pace)",
+            "state": "pending",
+            "completed_at": None,
+        })
+
+    return None
+
+
 def build_schedule(
     bundle: Dict[str, Any],
     cfg: SchedulerConfig,
@@ -514,20 +744,16 @@ def build_schedule(
     total_mcq_attempts: int = 0,
 ) -> List[Dict[str, Any]]:
     """
-    Return a list of day dicts from cfg.start_date through cfg.end_date.
+    Staged content ladder scheduler.
 
-    `plan_shape` is the optional AI-shaped plan blueprint from ai/plan_shaper.py:
-        {
-          "phase_windows": [{"phase": "...", "days": int}, ...],
-          "ordered_topic_ids": ["...", ...],
-          "weak_blitzes":     [{"topic_id": "...", "days": [int, ...]}],
-          "diagnostic_week":  [{"day_offset": int, "topic_ids": [...], "n": int}]
-        }
-    When absent, the scheduler falls back to its own ranking.
+    Each topic progresses through: read notes → watch videos → MCQ practice
+    → test + discussion → mock, with expanding spacing between stages for
+    spaced-repetition retention.
 
-    `total_mcq_attempts` is the student's lifetime MCQ attempt count across
-    the LMS. When below COLD_START_MCQ_THRESHOLD, the first few days inject
-    diagnostic mini-mocks on high-priority topics so mastery can bootstrap.
+    On any given day, the student works on 3-4 topics at DIFFERENT stages
+    so they always mix fresh learning + reinforcement + testing.
+
+    Mock exams occupy a full day with no other content.
     """
     mastery = mastery or {}
     due_recall_cards = due_recall_cards or []
@@ -540,9 +766,7 @@ def build_schedule(
     topics_by_id = {str(t.get("_id") or ""): t for t in topics}
     mocks = collect_mocks(bundle)
 
-    # Resolve an ordered topic queue. If the AI shaper has given us one, use it
-    # (with shape-unknown topics appended at the end in rule-based order so we
-    # never silently drop content). Otherwise use the internal _topic_score.
+    # ── 1. Order topics by priority + weakness ──
     shape = plan_shape or {}
     shape_order: List[str] = list(shape.get("ordered_topic_ids") or [])
     if shape_order:
@@ -553,7 +777,6 @@ def build_schedule(
             if t is not None and str(tid) not in seen:
                 ordered_topics.append(t)
                 seen.add(str(tid))
-        # Append anything the shaper didn't mention, ranked by rule.
         tail = sorted(
             (t for t in topics if str(t.get("_id") or "") not in seen),
             key=lambda t: -_topic_score(t, mastery, cfg.start_date),
@@ -562,58 +785,136 @@ def build_schedule(
     else:
         ordered_topics = sorted(topics, key=lambda t: -_topic_score(t, mastery, cfg.start_date))
 
-    # Phase window override from the shaper (days-per-phase). We convert it
-    # into a [(phase, end_day_offset), ...] cut list the per-day loop reads.
-    shape_windows = shape.get("phase_windows") or []
-    phase_cuts: List[tuple[str, int]] = []
-    if shape_windows:
-        acc = 0
-        for w in shape_windows:
-            acc += int(w.get("days") or 0)
-            phase_cuts.append((str(w.get("phase") or "Foundation"), acc))
+    # Filter to topics that have any content at all
+    ordered_topics = [
+        t for t in ordered_topics
+        if any((t.get("content_counts") or {}).get(k, 0)
+               for k in ("notes", "videos", "mcqs"))
+    ]
 
-    def _phase_for_day(day_offset: int, days_left: int, used: set[str]) -> str:
-        if phase_cuts:
-            for name, end in phase_cuts:
-                if day_offset < end:
-                    return name
-            return phase_cuts[-1][0]
-        return _phase_for_coverage(_compute_p1_coverage(topics, used), days_left)
-
-    # Build a quick-lookup of which offsets are blitz days for which topics.
-    blitz_by_offset: Dict[int, List[str]] = {}
-    for b in shape.get("weak_blitzes") or []:
-        tid = str(b.get("topic_id") or "")
-        for off in b.get("days") or []:
-            blitz_by_offset.setdefault(int(off), []).append(tid)
-
-    # Diagnostic week: either shaper-supplied or auto-injected for cold users.
-    diag_by_offset: Dict[int, List[str]] = {}
-    shape_diag = shape.get("diagnostic_week") or []
-    if shape_diag:
-        for e in shape_diag:
-            diag_by_offset[int(e.get("day_offset") or 0)] = [str(t) for t in (e.get("topic_ids") or [])]
-    elif total_mcq_attempts < COLD_START_MCQ_THRESHOLD:
-        # Pick top-5 P1 topics (ignoring focus list; shaper handles nuance) for
-        # the first DIAGNOSTIC_DAYS study days.
-        p1_topics = [t for t in ordered_topics if _priority_weight(t.get("priority_label")) >= 3.0]
-        for i in range(min(DIAGNOSTIC_DAYS, len(p1_topics))):
-            diag_by_offset[i] = [str(p1_topics[i].get("_id") or "")]
-
+    # ── 2. Build study day calendar (excluding rest days + mock days) ──
     days_total = (cfg.end_date - cfg.start_date).days + 1
-    days: List[Dict[str, Any]] = []
-    used_content: set[str] = set()
-    recall_pool = list(due_recall_cards)
+    all_dates: List[date] = []
+    rest_dates: set[date] = set()
+    for day_offset in range(days_total):
+        d = cfg.start_date + timedelta(days=day_offset)
+        if d in cfg.custom_rest_dates or _is_weekly_rest_day(d, cfg.rest_days_per_week):
+            rest_dates.add(d)
+        else:
+            all_dates.append(d)
 
-    rotation_idx = 0
-    study_day_counter = 0  # counts only non-rest days (for cold-start diag)
+    # Reserve mock days: evenly distributed across the last 25% of study days.
+    # Each mock gets a full day — no other content.
+    mock_count = min(len(mocks), cfg.mocks_count or len(mocks))
+    mock_day_indices: set[int] = set()
+    mock_day_assignments: Dict[int, Dict[str, Any]] = {}  # study_day_idx → mock dict
+    if mock_count > 0 and len(all_dates) > mock_count:
+        # Place mocks in the back quarter of the plan
+        quarter_start = int(len(all_dates) * 0.75)
+        available_for_mocks = len(all_dates) - quarter_start
+        if available_for_mocks < mock_count:
+            quarter_start = max(0, len(all_dates) - mock_count - 2)
+            available_for_mocks = len(all_dates) - quarter_start
+        interval = max(1, available_for_mocks // (mock_count + 1))
+        for mi in range(mock_count):
+            idx = quarter_start + (mi + 1) * interval
+            idx = min(idx, len(all_dates) - 1)
+            mock_day_indices.add(idx)
+            mock_day_assignments[idx] = mocks[mi % len(mocks)]
+
+    # Study days = all_dates minus mock days
+    study_days: List[date] = []
+    study_day_to_idx: Dict[date, int] = {}  # date → study_day_number (0-based)
+    for i, d in enumerate(all_dates):
+        if i not in mock_day_indices:
+            study_day_to_idx[d] = len(study_days)
+            study_days.append(d)
+
+    n_study_days = len(study_days)
+    if n_study_days == 0:
+        return []
+
+    # ── 3. Pre-compute the content ladder ──
+    # For each topic, assign a study-day offset for each stage.
+    # Topics start staggered: ~2 new topics begin per study day so the
+    # calendar fills with a mix of stages.
+    #
+    # Entry: (study_day_offset, topic_dict, stage_name, priority_key)
+    ladder_entries: List[tuple[int, Dict[str, Any], str, str]] = []
+
+    # How many new topics to seed per study day — controls density.
+    # Aim to start all topics within the first ~50-60% of study days so
+    # stages 3-4 have room to land before the plan ends.
+    seed_window = max(1, int(n_study_days * 0.55))
+    topics_per_day = max(1, len(ordered_topics) / seed_window)
+    # Track fractional accumulation for clean staggering.
+    accum = 0.0
+
+    for topic_idx, topic in enumerate(ordered_topics):
+        pk = _get_priority_key(topic.get("priority_label"))
+        spacing = SPACING_BY_PRIORITY[pk]
+
+        # Start day for this topic (staggered)
+        start_study_day = min(int(accum), n_study_days - 1)
+        accum += 1.0 / topics_per_day if topics_per_day else 1
+
+        # Skip stages with no content. A topic with 0 notes skips "read",
+        # a topic with 0 videos skips "watch", etc.
+        counts = topic.get("content_counts") or {}
+        has_notes = int(counts.get("notes") or 0) > 0
+        has_videos = int(counts.get("videos") or 0) > 0
+        has_mcqs = int(counts.get("mcqs") or 0) > 0
+
+        stage_list = []
+        if has_notes:
+            stage_list.append("read")
+        if has_videos:
+            stage_list.append("watch")
+        if has_mcqs:
+            stage_list.append("practice")
+        if has_mcqs:
+            stage_list.append("test")
+        # Mock stage is handled globally, not per-topic
+
+        cumulative_offset = start_study_day
+        for si, stage in enumerate(stage_list):
+            # Find the matching spacing index — map sequential available
+            # stages to the spacing array positions
+            stage_idx = STAGES.index(stage) if stage in STAGES else si
+            gap = spacing[min(stage_idx, len(spacing) - 1)]
+            if si == 0:
+                target_day = start_study_day
+            else:
+                target_day = cumulative_offset + gap
+
+            # Clamp to plan window
+            target_day = min(target_day, n_study_days - 1)
+            ladder_entries.append((target_day, topic, stage, pk))
+            cumulative_offset = target_day
+
+    # ── 4. Bin ladder entries by study-day offset ──
+    entries_by_day: Dict[int, List[tuple[Dict[str, Any], str, str]]] = {}
+    for sd_offset, topic, stage, pk in ladder_entries:
+        entries_by_day.setdefault(sd_offset, []).append((topic, stage, pk))
+
+    # ── 5. Build day cards ──
+    recall_pool = list(due_recall_cards)
+    used_content: set[str] = set()
+
+    # Build a lookup from date → day_offset (0-based from start_date)
+    date_to_offset: Dict[date, int] = {}
+    for i in range(days_total):
+        d = cfg.start_date + timedelta(days=i)
+        date_to_offset[d] = i
+
+    days: List[Dict[str, Any]] = []
+    study_day_counter = 0
 
     for day_offset in range(days_total):
         d = cfg.start_date + timedelta(days=day_offset)
-        days_left = (cfg.end_date - d).days
 
-        # Rest day handling
-        if d in cfg.custom_rest_dates or _is_weekly_rest_day(d, cfg.rest_days_per_week):
+        # Rest day
+        if d in rest_dates:
             days.append({
                 "day": d.isoformat(),
                 "phase": "Rest",
@@ -623,13 +924,46 @@ def build_schedule(
             })
             continue
 
-        phase = _phase_for_day(day_offset, days_left, used_content)
+        # Find the all_dates index for this date
+        all_dates_idx = None
+        for ai, ad in enumerate(all_dates):
+            if ad == d:
+                all_dates_idx = ai
+                break
+
+        # Mock day — full day, no other content
+        if all_dates_idx is not None and all_dates_idx in mock_day_indices:
+            mock_dict = mock_day_assignments[all_dates_idx]
+            mock_block = _build_mock_block(mock_dict, user_multipliers.get("mcq", 1.0))
+            days.append({
+                "day": d.isoformat(),
+                "phase": "Mock Day",
+                "time_budget_min": cfg.effective_daily_minutes,
+                "blocks": [mock_block],
+                "checkpoint": {
+                    "expected_progress": round((day_offset + 1) / days_total, 3),
+                    "actual": None,
+                },
+            })
+            continue
+
+        # Regular study day
         budget = cfg.effective_daily_minutes
         remaining = budget
-        day_video_used = 0
         blocks: List[Dict[str, Any]] = []
 
-        # 1) Recall first — always pin a small recall block at the top
+        # Determine phase label from progress through the plan
+        progress_pct = study_day_counter / max(1, n_study_days)
+        if progress_pct < 0.40:
+            phase = "Foundation"
+        elif progress_pct < 0.65:
+            phase = "Consolidation"
+        elif progress_pct < 0.85:
+            phase = "Revision"
+        else:
+            phase = "Final"
+
+        # a) Recall block — pinned at top
         chunk = recall_pool[:8]
         recall_pool = recall_pool[8:]
         recall_block = _build_recall_block(chunk)
@@ -637,61 +971,44 @@ def build_schedule(
             blocks.append(recall_block)
             remaining -= int(recall_block.get("minutes") or 0)
 
-        # 2a) Diagnostic mini-mock (cold-start week-1). One per study day.
-        diag_tids = diag_by_offset.get(study_day_counter, [])
-        for diag_tid in diag_tids[:1]:
-            diag_topic = topics_by_id.get(diag_tid)
-            if diag_topic:
-                mm = _build_mini_mock_block(diag_topic, DIAGNOSTIC_MINI_MOCK_Q, user_multipliers["mcq"])
-                blocks.append(mm)
-                remaining -= int(mm.get("minutes") or 0)
+        # b) Fill from the ladder entries scheduled for this study day
+        day_entries = entries_by_day.get(study_day_counter, [])
 
-        # 2b) Full mock days — Final phase gets one every 3 days (if available)
-        if phase == "Final" and mocks and day_offset % 3 == 0:
-            mock = mocks[(day_offset // 3) % len(mocks)]
-            mock_block = _build_mock_block(mock, user_multipliers["mcq"])
-            blocks.append(mock_block)
-            remaining -= int(mock_block.get("minutes") or 0)
+        # Sort: P1 first, then by stage order (read before watch before practice)
+        stage_order = {"read": 0, "watch": 1, "practice": 2, "test": 3}
+        priority_order = {"P1_HIGH": 0, "P2_MID": 1, "P3_LOW": 2}
+        day_entries.sort(key=lambda e: (priority_order.get(e[2], 1), stage_order.get(e[1], 9)))
 
-        # 3) Topic picks for the day.
-        rotation_count = PHASE_TOPIC_ROTATION_RATE[phase]
-        picked: List[Dict[str, Any]] = []
-
-        # Blitz topics always land first on their scheduled offset.
-        blitz_tids = blitz_by_offset.get(day_offset, [])
-        for tid in blitz_tids:
-            t = topics_by_id.get(str(tid))
-            if t is not None and t not in picked:
-                picked.append(t)
-
-        # Round-robin from the ordered queue for the remaining slots.
-        remaining_slots = max(0, rotation_count - len(picked))
-        if ordered_topics:
-            for i in range(remaining_slots):
-                picked.append(ordered_topics[(rotation_idx + i) % len(ordered_topics)])
-            rotation_idx = (rotation_idx + remaining_slots) % max(1, len(ordered_topics))
-
-        # 4) For each picked topic, fill the day greedily
-        for topic in picked:
-            if remaining < 15:
+        for topic, stage, pk in day_entries:
+            if remaining < 10:
                 break
-            for kind in BLOCK_KIND_ORDER:
-                if remaining < 10:
+            block = _build_stage_block(
+                topic, stage, pk, remaining,
+                used_content, user_multipliers, mastery,
+            )
+            if block:
+                blocks.append(block)
+                remaining -= int(block.get("minutes") or 0)
+
+        # c) If the day still has budget left (>30 min), fill with extra
+        #    practice blocks from the weakest topics that have MCQs.
+        if remaining > 30:
+            for topic in ordered_topics:
+                if remaining < 20:
                     break
-                if kind == "mock":
-                    continue  # mocks handled above
-                builder = {
-                    "read": lambda: _build_read_block(topic, remaining, used_content, user_multipliers["read"]),
-                    "watch": lambda: _build_watch_block(topic, remaining, day_video_used, used_content, user_multipliers["watch"]),
-                    "practice": lambda: _build_practice_block(topic, remaining, mastery, user_multipliers["mcq"]),
-                }[kind]()
-                if not builder:
+                tid = str(topic.get("_id") or "")
+                counts = topic.get("content_counts") or {}
+                if int(counts.get("mcqs") or 0) <= 0:
                     continue
-                blocks.append(builder)
-                spent = int(builder.get("minutes") or 0)
-                remaining -= spent
-                if kind == "watch":
-                    day_video_used += spent
+                pk = _get_priority_key(topic.get("priority_label"))
+                extra = _build_stage_block(
+                    topic, "practice", pk, remaining,
+                    used_content, user_multipliers, mastery,
+                )
+                if extra:
+                    blocks.append(extra)
+                    remaining -= int(extra.get("minutes") or 0)
+                    break  # one extra block is enough
 
         days.append({
             "day": d.isoformat(),
