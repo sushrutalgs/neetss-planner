@@ -52,7 +52,9 @@ logger = logging.getLogger("planner.scheduler")
 # ───────────────────────── tunables ─────────────────────────
 
 # Hard cap on a single day's video minutes — cognitive fatigue heuristic.
-MAX_VIDEO_MIN_PER_DAY = 45
+# Raised from 45 to 90 now that we use real durations from the LMS; a
+# single long surgery video can be 30-40 min, and students need 2-3/day.
+MAX_VIDEO_MIN_PER_DAY = 90
 
 # Block ordering preference — read first (build understanding), then watch,
 # then practice (test understanding), recall always pinned to top of day.
@@ -172,40 +174,63 @@ def _topic_score(
 # ───────────────────────── block builders ─────────────────────────
 
 
+def _estimate_note_minutes(meta: Dict[str, Any], fallback: int = 22) -> int:
+    """Derive reading time from the note's real page count.
+
+    Heuristic: ~2.5 minutes per page (dense medical text with diagrams).
+    The LMS provides `total_pages` in notes_meta; when missing we fall
+    back to the topic-level average.
+    """
+    pages = meta.get("total_pages") or meta.get("totalPage")
+    if pages and int(pages) > 0:
+        return max(5, int(int(pages) * 2.5))
+    return max(5, fallback)
+
+
 def _build_read_block(
     topic: Dict[str, Any],
     remaining_min: int,
     used_content_ids: set[str],
     user_multiplier: float,
 ) -> Optional[Dict[str, Any]]:
-    """Pick the smallest unscheduled note that fits."""
+    """Pick the smallest unscheduled note that fits, using real page counts."""
     notes = (topic.get("content_ids") or {}).get("notes", []) or []
-    notes_meta = (topic.get("notes_meta") or [])  # optional richer payload
+    notes_meta = (topic.get("notes_meta") or [])
     if not notes:
         return None
 
-    # Estimated time per note: prefer per-note metadata, fall back to topic average
+    # Build a quick-lookup for per-note metadata (page counts, titles).
+    meta_by_id: Dict[str, Dict[str, Any]] = {}
+    for m in notes_meta:
+        mid = m.get("_id") or ""
+        if mid:
+            meta_by_id[str(mid)] = m
+
+    # Topic-level fallback: if no individual page counts exist, use
+    # est_minutes.read / n_notes as the per-note average.
     est = topic.get("est_minutes", {}) or {}
-    avg_per_note = max(8, int((est.get("read") or 22) / max(1, len(notes))))
-    avg_per_note = int(avg_per_note * user_multiplier)
+    topic_avg = max(8, int((est.get("read") or 22) / max(1, len(notes))))
 
     items = []
     spent = 0
     for nid in notes:
         if nid in used_content_ids:
             continue
-        if spent + avg_per_note > remaining_min:
+        meta = meta_by_id.get(str(nid), {})
+        raw_min = _estimate_note_minutes(meta, fallback=topic_avg)
+        note_min = max(5, int(raw_min * user_multiplier))
+        if spent + note_min > remaining_min:
             break
-        meta = next((m for m in notes_meta if m.get("_id") == nid), {})
         items.append({
             "content_kind": "notes",
             "content_id": nid,
             "title": meta.get("title", "Notes"),
-            "est_min": avg_per_note,
+            "total_pages": meta.get("total_pages") or meta.get("totalPage"),
+            "est_min": note_min,
         })
         used_content_ids.add(nid)
-        spent += avg_per_note
-        if len(items) >= 2:  # cap at 2 notes per read block
+        spent += note_min
+        if len(items) >= 3:  # cap at 3 notes per read block
             break
 
     if not items:
@@ -221,6 +246,19 @@ def _build_read_block(
     })
 
 
+def _estimate_video_minutes(meta: Dict[str, Any], fallback: int = 20) -> int:
+    """Derive watch time from the video's real duration_sec.
+
+    The LMS stores actual duration in seconds on each video document.
+    We round up to whole minutes and add a 10% buffer for pausing /
+    note-taking. When duration_sec is missing, fall back to topic avg.
+    """
+    dur = meta.get("duration_sec") or meta.get("duration")
+    if dur and float(dur) > 0:
+        return max(3, int(float(dur) / 60 * 1.1 + 0.5))  # +10% buffer, round up
+    return max(3, fallback)
+
+
 def _build_watch_block(
     topic: Dict[str, Any],
     remaining_min: int,
@@ -228,6 +266,7 @@ def _build_watch_block(
     used_content_ids: set[str],
     user_multiplier: float,
 ) -> Optional[Dict[str, Any]]:
+    """Schedule unwatched videos using real durations from LMS metadata."""
     videos = (topic.get("content_ids") or {}).get("videos", []) or []
     videos_meta = (topic.get("videos_meta") or [])
     if not videos:
@@ -236,28 +275,37 @@ def _build_watch_block(
     if video_budget <= 5:
         return None
 
+    # Build quick-lookup for per-video metadata (duration, title).
+    meta_by_id: Dict[str, Dict[str, Any]] = {}
+    for m in videos_meta:
+        mid = m.get("_id") or ""
+        if mid:
+            meta_by_id[str(mid)] = m
+
+    # Topic-level fallback when individual durations are missing.
     est = topic.get("est_minutes", {}) or {}
-    avg_per_video = max(6, int((est.get("watch") or 20) / max(1, len(videos))))
-    avg_per_video = int(avg_per_video * user_multiplier)
+    topic_avg = max(6, int((est.get("watch") or 20) / max(1, len(videos))))
 
     items = []
     spent = 0
     for vid in videos:
         if vid in used_content_ids:
             continue
-        if spent + avg_per_video > min(remaining_min, video_budget):
+        meta = meta_by_id.get(str(vid), {})
+        raw_min = _estimate_video_minutes(meta, fallback=topic_avg)
+        vid_min = max(3, int(raw_min * user_multiplier))
+        if spent + vid_min > min(remaining_min, video_budget):
             break
-        meta = next((m for m in videos_meta if m.get("_id") == vid), {})
         items.append({
             "content_kind": "video",
             "content_id": vid,
             "title": meta.get("title", "Video"),
-            "est_min": avg_per_video,
-            "duration_sec": meta.get("duration_sec"),
+            "est_min": vid_min,
+            "duration_sec": meta.get("duration_sec") or meta.get("duration"),
         })
         used_content_ids.add(vid)
-        spent += avg_per_video
-        if len(items) >= 2:
+        spent += vid_min
+        if len(items) >= 3:  # allow up to 3 shorter videos per block
             break
 
     if not items:
